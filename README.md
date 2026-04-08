@@ -16,6 +16,9 @@
 <Stack of the project>
 
 
+## Datasets
+
+We are using the open source arXiv dataset: https://www.kaggle.com/datasets/Cornell-University/arxiv/data
 
 ## Use Cases
 
