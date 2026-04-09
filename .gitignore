@@ -29,6 +29,5 @@ yarn-error.log*
 pnpm-lock.yaml
 
 # IDE
-.idea/
-
-datasets
+backend/ingestor/datasets
+.idea
