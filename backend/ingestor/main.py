@@ -12,10 +12,11 @@ def main():
     ingestor = Ingestor()
 
     for chunk in ingestor.run(dataset_path):
-        print(chunk)
+        start = time.time()
         actions = parser.generate_actions(chunk = chunk)
         elastic_integration.save_data(actions)
-
+        end = time.time()
+        print(f"Tempo total de chunk: {end - start:.2f}s")
     end = time.time()
     print(f"Tempo total: {end - start:.2f}s")
 
