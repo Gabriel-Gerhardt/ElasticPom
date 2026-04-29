@@ -4,11 +4,60 @@ import time
 from ingestor import Ingestor
 
 def main():
+    mapping = {
+        "mappings": {
+            "properties": {
+                "submitter": {
+                    "type": "text",
+                },
+                "authors": {
+                    "type": "text",
+                },
+                "comments": {
+                    "type": "text",
+                },
+                "journal_ref": {
+                    "type": "text",
+                },
+                "doi": {
+                    "type": "text"
+                },
+                "categories": {
+                    "type": "text",
+                },
+                "license": {
+                    "type": "text",
+                },
+                "abstract": {
+                    "type": "text",
+                },
+                "version": {
+                    "type": "nested",
+                    "properties": {
+                        "version": {
+                            "type": "text",
+                        },
+                        "created":{
+                            "type": "text",
+                        }
+                    }
+                },
+                "update_date": {
+                    "type": "text",
+                },
+                "authors_parsed": {
+                    "type": "keyword",
+                        
+                }
+            }
+        }
+    }
+    index = "arxiv_v3"
     start = time.time()
     dataset_path = "datasets/arxiv-dataset.json"
-    print("Loading dataset...")
-    parser = ElasticDataParser("arxiv")
+    parser = ElasticDataParser(index)
     elastic_integration = ElasticIntegration(elasticsearch_host="http://localhost:9200")
+    elastic_integration.put_mapping(index, mapping)
     ingestor = Ingestor()
 
     for chunk in ingestor.run(dataset_path):
@@ -16,8 +65,9 @@ def main():
         actions = parser.generate_actions(chunk = chunk)
         elastic_integration.save_data(actions)
         end = time.time()
-        print(f"Tempo total de chunk: {end - start:.2f}s")
+        print(f"Total chunk time: {end - start:.2f}s")
+        print(chunk)
     end = time.time()
-    print(f"Tempo total: {end - start:.2f}s")
+    print(f"Total ingestion time: {end - start:.2f}s")
 
 main()
