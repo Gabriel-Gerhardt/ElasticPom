@@ -18,7 +18,7 @@ Data ingestion → MongoDB → Elasticsearch → Backend → Frontend
 - Elasticsearch 9.3.2
 - React + JavaScript (frontend)
   
-## Dataset
+## Datasets
 
 - arXiv dataset  
   https://www.kaggle.com/datasets/Cornell-University/arxiv/data
