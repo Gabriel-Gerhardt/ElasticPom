@@ -7,6 +7,7 @@ import com.elasticpom.external.integration.PaperRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import com.elasticpom.external.mapper.PaperMapper;
 
 import java.util.List;
 
@@ -14,10 +15,12 @@ import java.util.List;
 public class PaperService {
     private final PaperRepository paperRepository;
     private final ElasticPaperRepository elasticRepository;
+    private final PaperMapper paperMapper;
 
-    public PaperService(PaperRepository paperRepository, ElasticPaperRepository elasticRepository) {
+    public PaperService(PaperRepository paperRepository, ElasticPaperRepository elasticRepository, PaperMapper paperMapper) {
         this.paperRepository = paperRepository;
         this.elasticRepository = elasticRepository;
+        this.paperMapper = paperMapper;
     }
 //
 //    public Paper getPaperByQuery(String query) {
@@ -29,6 +32,7 @@ public class PaperService {
         List<String> arxivIds = elasticRepository.findAll(pageable).stream().map(ElasticPaperDocument::getId).toList();
         return arxivIds.stream()
                 .map(paperRepository::findByArxivId)
+                .map(paperMapper::fromDocument)
                 .toList();
     }
 }

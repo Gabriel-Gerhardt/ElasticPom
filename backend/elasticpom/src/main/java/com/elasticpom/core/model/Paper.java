@@ -1,7 +1,14 @@
 package com.elasticpom.core.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.List;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Paper {
     private Long id;
     private String arxivId;
@@ -14,6 +21,6 @@ public class Paper {
     private List<Category> categories;
     private String license;
     private String description;
-    private List<Version> versions;
+    private List<VersionEntry> versions;
     private String updateDate;
 }

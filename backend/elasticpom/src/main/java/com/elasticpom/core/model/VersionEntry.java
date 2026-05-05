@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Category {
-    private String mainTopic;
-    private String secondaryTopic;
+public class VersionEntry {
+    private String version;
+    private String createdAt;
 }

@@ -7,6 +7,9 @@ def main():
     mapping = {
         "mappings": {
             "properties": {
+                "id": {
+                    "type": "keyword"
+                },
                 "submitter": {
                     "type": "text",
                 },
@@ -55,7 +58,7 @@ def main():
             }
         }
     }
-    index = "arxiv_v2"
+    index = "arxiv"
     start = time.time()
     dataset_path = "datasets/arxiv-dataset.json"
     parser = ElasticDataParser(index)

@@ -1,11 +1,15 @@
 package com.elasticpom.adapters.dto;
 
-import com.elasticpom.core.model.Category;
-import com.elasticpom.core.model.Version;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PaperDto {
     private Long id;
@@ -16,9 +20,9 @@ public class PaperDto {
     private String journalRef;
     private String doi;
     private String reportNo;
-    private List<Category> categories;
+    private List<CategoryDto> categories;
     private String license;
     private String description;
-    private List<Version> versions;
+    private List<VersionEntryDto> versions;
     private String updateDate;
 }

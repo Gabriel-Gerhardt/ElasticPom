@@ -1,3 +1,10 @@
 spring:
   application:
     name: elasticpom
+  data:
+    elasticsearch:
+      uris: http://localhost:9200
+  mongodb:
+    uri: mongodb://admin:password@localhost:27017
+    database: elasticpom
+    authentication-database: admin
