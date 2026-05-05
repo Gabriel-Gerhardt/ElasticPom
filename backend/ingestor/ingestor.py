@@ -6,5 +6,3 @@ class Ingestor:
     def run(self, path):
         for chunk in pd.read_json(path, lines=True, chunksize=1000):
             yield chunk
-
-

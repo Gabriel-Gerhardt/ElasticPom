@@ -12,7 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PaperDto {
-    private Long id;
+    private String id;
     private String arxivId;
     private String authors;
     private String title;

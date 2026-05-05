@@ -9,7 +9,7 @@ class ElasticDataParser:
         for _, row in chunk.iterrows():
             source = self.mount_source(row)
             yield {
-                "_id": row.get("id"),
+                "_id": str(row.get("id")),
                 "_index": self.index_name,
                 "_source": source,
             }

@@ -9,5 +9,4 @@ import org.springframework.stereotype.Component;
 @Component
 public interface ElasticPaperRepository extends ElasticsearchRepository<ElasticPaperDocument,String> {
     Page<ElasticPaperDocument> findAll(Pageable pageable);
-
 }

@@ -10,7 +10,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Paper {
-    private Long id;
+    private String id;
     private String arxivId;
     private String authors;
     private String title;
