@@ -1,11 +1,11 @@
-## <Project Name>
+## ElasticPom
 
-<Project fast description>
-  
+Unified scientific papers full-stack application
+
 ## How It Works
 
-<Specified project description>
-
+Ingest data from sources to mount the papers on Mongo and save them for search in Elastic.
+The user search papers with natural language, it returns the most relevant of them.
 
 ## Diagram
 
@@ -13,28 +13,59 @@
   
 ## Tech Stack
 
-<Stack of the project>
 
 
 ## Datasets
 
-We are using the open source arXiv dataset: https://www.kaggle.com/datasets/Cornell-University/arxiv/data
+The current datasets being used for ingestion are:
+
+arXiv dataset: https://www.kaggle.com/datasets/Cornell-University/arxiv/data
 
 ## Use Cases
 
-<Why the project is useful>
+Allows centralized search of many scientific papers
+Shows the most relevant papers
+Allow semantic search
 
 ## Set-up
 
+### Github
 ```bash
-git clone <Link>
-cd <Project name>
-<other comands>
+git clone https://github.com/Gabriel-Gerhardt/ElasticPom.git
+cd ElasticPom
 ```
+
+### Docker
+```bash
+cd backend
+docker compose up
+```
+
+### Ingestion
+```bash
+cd ingestor
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 main.py
+```
+
+### Web
+```bash
+cd backend
+./gradlew clean build
+./gradlew bootRun
+cd ..
+cd frontend
+npm install
+npm run dev
+```
+
 
 Access:
 
-    <Api routes or swagger>
+    Most relevant papers pagination: http://localhost:8080/api/papers/most-relevant/?page-size=10&page=0
+    
 
 ## Contact
 [LinkedIn](https://www.linkedin.com/in/gabriel-gerhardt-0a8b852b9/)
