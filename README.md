@@ -17,8 +17,7 @@ Data ingestion → MongoDB → Elasticsearch → Backend → Frontend
 - MongoDB 8.2.6
 - Elasticsearch 9.3.2
 - React + JavaScript (frontend)
-- Docker
-
+  
 ## Dataset
 
 - arXiv dataset  
