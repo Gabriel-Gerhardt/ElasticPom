@@ -6,7 +6,7 @@ Unified full-stack application for semantic search over scientific papers.
 
 ElasticPom ingests scientific paper datasets, stores metadata in MongoDB, and indexes them in Elasticsearch to enable fast and semantic search. Users can query papers using natural language and retrieve the most relevant results.
 
-## Architecture
+## Architecture Diagram
 
 Data ingestion → MongoDB → Elasticsearch → Backend → Frontend
 
