@@ -48,11 +48,14 @@ def main():
                 "authors_parsed": {
                     "type": "keyword",
                         
+                },
+                "categories_parsed": {
+                    "type": "keyword",
                 }
             }
         }
     }
-    index = "arxiv_v3"
+    index = "arxiv_v2"
     start = time.time()
     dataset_path = "datasets/arxiv-dataset.json"
     parser = ElasticDataParser(index)
@@ -66,7 +69,6 @@ def main():
         elastic_integration.save_data(actions)
         end = time.time()
         print(f"Total chunk time: {end - start:.2f}s")
-        print(chunk)
     end = time.time()
     print(f"Total ingestion time: {end - start:.2f}s")
 
