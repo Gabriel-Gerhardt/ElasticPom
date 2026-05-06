@@ -1,17 +1,18 @@
-from elasticsearch.dsl import document
-
 from elastic.elastic_data_parser import ElasticDataParser
 from elastic.elastic_integration import ElasticIntegration
 import time
 from ingestor import Ingestor
-from mongo import mongo_data_parser
 from mongo.mongo_data_parser import MongoDataParser
 from mongo.mongo_integration import MongoIntegration
 
 
 def main():
     mapping = {
+        "settings": {
+            "index.mapping.coerce": False
+        },
         "mappings": {
+            "dynamic": "strict",
             "properties": {
                 "id": {
                     "type": "keyword"
