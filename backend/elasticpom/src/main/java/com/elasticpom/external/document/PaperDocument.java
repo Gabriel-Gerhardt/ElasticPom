@@ -16,8 +16,8 @@ public class PaperDocument {
     @Field("_id")
     private String id;
 
-    @Field("arxiv_id")
-    private String arxivId;
+    @Field("paper_id")
+    private String paperId;
 
     @Field("authors")
     private String authors;

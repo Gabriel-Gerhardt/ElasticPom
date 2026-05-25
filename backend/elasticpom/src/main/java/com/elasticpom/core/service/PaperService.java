@@ -24,19 +24,31 @@ public class PaperService {
         this.elasticRepository = elasticRepository;
         this.paperMapper = paperMapper;
     }
-//
-//    public Paper getPaperByQuery(String query) {
-//        return paperRepository.findByArxivId(arxivId);
-//    }
+
+    public List<Paper> getPapersByQuery(String query, Integer pageSize, Integer page) {
+        Pageable pageable = PageRequest.of(page, pageSize);
+        List<String> paperIds = elasticRepository.findByQuery(query, pageable).stream().map(ElasticPaperDocument::getId).toList();
+        System.out.println(paperIds);
+        if (paperIds.isEmpty()) {
+            throw new PaperNotInElasticException("There is no paper in the elastic for the page" + page);
+        }
+        return getPapersByIds(paperIds);
+    }
+
 
     public List<Paper> getPapersByDefaultRelevance(Integer pageSize, Integer page) {
         Pageable pageable = PageRequest.of(page, pageSize);
-        List<String> arxivIds = elasticRepository.findAll(pageable).stream().map(ElasticPaperDocument::getId).toList();
-        if (arxivIds.isEmpty()) {
+        List<String> paperIds = elasticRepository.findAll(pageable).stream().map(ElasticPaperDocument::getId).toList();
+
+        if (paperIds.isEmpty()) {
             throw new PaperNotInElasticException("There is no paper in the elastic for the page" + page);
         }
-        return arxivIds.stream()
-                .map(paperRepository::findByArxivId)
+        return getPapersByIds(paperIds);
+    }
+
+    public List<Paper> getPapersByIds(List<String> paperIds) {
+        return paperIds.stream()
+                .map(paperRepository::findByPaperId)
                 .filter(Objects::nonNull)
                 .map(paperMapper::fromDocument)
                 .toList();

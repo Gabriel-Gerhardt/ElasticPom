@@ -4,6 +4,7 @@ import time
 from ingestor import Ingestor
 from mongo.mongo_data_parser import MongoDataParser
 from mongo.mongo_integration import MongoIntegration
+from utils.DataConverter import DataConverter
 
 
 def main():
@@ -12,7 +13,6 @@ def main():
             "index.mapping.coerce": False
         },
         "mappings": {
-            "dynamic": "strict",
             "properties": {
                 "id": {
                     "type": "keyword"
@@ -26,7 +26,7 @@ def main():
                 "comments": {
                     "type": "text",
                 },
-                "journal_ref": {
+                "journal-ref": {
                     "type": "text",
                 },
                 "doi": {
@@ -52,8 +52,11 @@ def main():
                         }
                     }
                 },
+                "created_date":{
+                    "type": "date",
+                },
                 "update_date": {
-                    "type": "text",
+                    "type": "date",
                 },
                 "authors_parsed": {
                     "type": "keyword",
@@ -66,7 +69,6 @@ def main():
         }
     }
     index = "arxiv"
-    start = time.time()
     dataset_path = "datasets/arxiv-dataset.json"
 
     mongo_parser = MongoDataParser()
@@ -75,8 +77,8 @@ def main():
         database="elasticpom",
         collection="Paper"
     )
-
-    elastic_parser = ElasticDataParser(index)
+    data_converter = DataConverter()
+    elastic_parser = ElasticDataParser(index, data_converter)
     elastic_integration = ElasticIntegration(elasticsearch_host="http://localhost:9200")
     elastic_integration.put_mapping(index, mapping)
 

@@ -1,6 +1,10 @@
+from utils.DataConverter import DataConverter
+
+
 class ElasticDataParser:
-    def __init__(self, index_name):
+    def __init__(self, index_name, data_converter: DataConverter):
         self.index_name = index_name
+        self.data_converter = data_converter
 
     def parse_row(self, row):
         return row.dropna().to_dict()
@@ -17,11 +21,13 @@ class ElasticDataParser:
     def mount_source(self, row):
         authors = self.append_authors_name(row.get("authors_parsed"))
         categories_parsed = self.break_categories(row.get("categories"))
-
-
+        created_date = self.get_creation_date(row.get("versions"))
+        print(row.get("update_date"))
         source = self.parse_row(row)
         source["categories_parsed"] = categories_parsed
         source["authors_parsed"] = authors
+        source["created_date"] = created_date
+        print(source)
 
         return source
 
@@ -37,3 +43,8 @@ class ElasticDataParser:
     def break_categories(self, categories):
         categories = categories.split(" ")
         return categories
+
+    def get_creation_date(self, versions):
+        if not versions:
+            return None
+        return self.data_converter.rfc1123_to_iso(versions[0]["created"])

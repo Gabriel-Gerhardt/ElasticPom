@@ -6,7 +6,7 @@ class MongoDataParser:
 
     def parse_document(self, row):
         doc = {
-            "arxiv_id": str(row["id"]),
+            "paper_id": str(row["id"]),
             "authors": row["authors"],
             "title": row["title"],
             "comments": row["comments"],
