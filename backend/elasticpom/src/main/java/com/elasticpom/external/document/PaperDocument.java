@@ -23,6 +23,9 @@ public class PaperDocument {
     @Field("datestamp")
     private LocalDate datestamp;
 
+    @Field("title")
+    private String title;
+
     @Field("creators")
     private List<String> creators;
 
