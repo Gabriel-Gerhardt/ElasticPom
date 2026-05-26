@@ -4,7 +4,7 @@ import com.elasticpom.adapters.dto.PaperDto;
 import com.elasticpom.adapters.dto.request.PaperQueryRequest;
 import com.elasticpom.core.service.PaperService;
 import com.elasticpom.exception.BadRequestException;
-import com.elasticpom.external.mapper.PaperMapper;
+import com.elasticpom.adapters.PaperMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;

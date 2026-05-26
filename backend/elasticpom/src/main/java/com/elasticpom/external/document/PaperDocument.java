@@ -5,6 +5,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import java.time.LocalDate;
 import java.util.List;
 @Document("Paper")
 @Data
@@ -19,58 +20,60 @@ public class PaperDocument {
     @Field("paper_id")
     private String paperId;
 
-    @Field("authors")
-    private String authors;
+    @Field("datestamp")
+    private LocalDate datestamp;
 
-    @Field("title")
-    private String title;
+    @Field("creators")
+    private List<String> creators;
 
-    @Field("comments")
-    private String comments;
-
-    @Field("journal_ref")
-    private String journalRef;
-
-    @Field("doi")
-    private String doi;
-
-    @Field("report_no")
-    private String reportNo;
-
-    @Field("categories")
-    private List<CategoryDocument> categories;
-
-    @Field("license")
-    private String license;
+    @Field("subjects")
+    private List<String> subjects;
 
     @Field("description")
     private String description;
 
-    @Field("versions")
-    private List<VersionEntryDocument> versions;
+    @Field("publisher")
+    private String publisher;
 
-    @Field("update_date")
-    private String updateDate;
+    @Field("contributors")
+    private List<String> contributors;
+
+    @Field("date")
+    private LocalDate date;
+
+    @Field("type")
+    private String type;
+
+    @Field("identifier")
+    private String identifier;
+
+    @Field("source")
+    private String source;
+
+    @Field("language")
+    private String language;
+
+    @Field("relations")
+    private List<String> relations;
+
+    @Field("coverage")
+    private String coverage;
+
+    @Field("rights")
+    private String rights;
+
+    @Field("unique_fields")
+    private List<UniqueFieldDocument> uniqueFields;
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class CategoryDocument {
-        @Field("main_topic")
-        private String mainTopic;
+    public static class UniqueFieldDocument {
+        @Field("name")
+        private String name;
 
-        @Field("secondary_topic")
-        private String secondaryTopic;
+        @Field("data")
+        private String data;
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class VersionEntryDocument {
-        @Field("version")
-        private String version;
-
-        @Field("created_at")
-        private String createdAt;
-    }
 }
