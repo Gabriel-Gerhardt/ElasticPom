@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-class DataConverter:
+class TimeConverter:
     def rfc1123_to_iso(self, date_str: str) -> str | None:
         if not date_str:
             return None

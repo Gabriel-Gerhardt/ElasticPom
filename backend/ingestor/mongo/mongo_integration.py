@@ -2,11 +2,12 @@ from pymongo import MongoClient, UpdateOne
 from pymongo.errors import BulkWriteError
 
 class MongoIntegration:
-    def __init__(self, uri, database, collection, unique_key="paperId"):
+    def __init__(self, uri, database, collection, unique_key="paper_id"):
         self.client = MongoClient(uri)
         self.db = self.client[database]
         self.collection = self.db[collection]
         self.unique_key = unique_key
+        self.ensure_indexes()
 
     def bulk_save(self, documents):
         ops = [

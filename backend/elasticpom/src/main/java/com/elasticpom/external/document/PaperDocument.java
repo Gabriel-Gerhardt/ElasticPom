@@ -56,10 +56,10 @@ public class PaperDocument {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CategoryDocument {
-        @Field("mainTopic")
+        @Field("main_topic")
         private String mainTopic;
 
-        @Field("secondaryTopic")
+        @Field("secondary_topic")
         private String secondaryTopic;
     }
 
@@ -70,7 +70,7 @@ public class PaperDocument {
         @Field("version")
         private String version;
 
-        @Field("createdAt")
+        @Field("created_at")
         private String createdAt;
     }
 }
