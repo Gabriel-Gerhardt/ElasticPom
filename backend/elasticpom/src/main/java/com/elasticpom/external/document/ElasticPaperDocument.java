@@ -17,7 +17,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(indexName = "arxiv")
+@Document(indexName = "paper")
 public class ElasticPaperDocument {
 
     @Id

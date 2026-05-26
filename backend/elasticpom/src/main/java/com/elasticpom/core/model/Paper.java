@@ -11,7 +11,7 @@ import java.util.List;
 @AllArgsConstructor
 public class Paper {
     private String id;
-    private String arxivId;
+    private String paperId;
     private String authors;
     private String title;
     private String comments;

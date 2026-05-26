@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface PaperRepository extends MongoRepository<PaperDocument, String> {
-    PaperDocument findByArxivId(String arxivId);
+    PaperDocument findByPaperId(String paperId);
 }

@@ -16,8 +16,8 @@ public class PaperDocument {
     @Field("_id")
     private String id;
 
-    @Field("arxiv_id")
-    private String arxivId;
+    @Field("paper_id")
+    private String paperId;
 
     @Field("authors")
     private String authors;
@@ -56,10 +56,10 @@ public class PaperDocument {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CategoryDocument {
-        @Field("mainTopic")
+        @Field("main_topic")
         private String mainTopic;
 
-        @Field("secondaryTopic")
+        @Field("secondary_topic")
         private String secondaryTopic;
     }
 
@@ -70,7 +70,7 @@ public class PaperDocument {
         @Field("version")
         private String version;
 
-        @Field("createdAt")
+        @Field("created_at")
         private String createdAt;
     }
 }
