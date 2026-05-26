@@ -21,16 +21,19 @@ def main():
                 "datestamp": {
                     "type": "date",
                 },
-                "creator": {
+                "creators": {
                     "type": "text",
                 },
-                "subject": {
+                "subjects": {
                     "type": "text",
                 },
                 "description": {
                     "type": "text",
                 },
                 "publisher": {
+                    "type": "text",
+                },
+                "contributors": {
                     "type": "text",
                 },
                 "date": {
@@ -51,7 +54,7 @@ def main():
                 "language": {
                     "type": "keyword"
                 },
-                "relation": {
+                "relations": {
                     "type": "keyword"
                 },
                 "coverage": {

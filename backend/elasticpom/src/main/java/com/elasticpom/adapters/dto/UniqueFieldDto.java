@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class VersionEntryDto {
-    private String version;
-    private String createdAt;
+public class UniqueFieldDto {
+    private String name;
+    private String data;
 }

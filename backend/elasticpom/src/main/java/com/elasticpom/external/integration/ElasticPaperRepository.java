@@ -19,7 +19,7 @@ public interface ElasticPaperRepository extends ElasticsearchRepository<ElasticP
         {
           "multi_match": {
             "query": "?0",
-            "fields": ["title^1.5","categories","abstract^0.3","authors"],
+            "fields": ["title^1.5","subjects","description^0.8","creators"],
             "tie_breaker": 0.3
           }
         }

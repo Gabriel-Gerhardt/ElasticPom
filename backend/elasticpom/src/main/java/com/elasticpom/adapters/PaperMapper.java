@@ -1,4 +1,4 @@
-package com.elasticpom.external.mapper;
+package com.elasticpom.adapters;
 
 import com.elasticpom.adapters.dto.PaperDto;
 import com.elasticpom.core.model.Paper;

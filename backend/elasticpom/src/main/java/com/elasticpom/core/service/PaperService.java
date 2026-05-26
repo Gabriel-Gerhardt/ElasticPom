@@ -8,7 +8,7 @@ import com.elasticpom.external.integration.PaperRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import com.elasticpom.external.mapper.PaperMapper;
+import com.elasticpom.adapters.PaperMapper;
 
 import java.util.List;
 import java.util.Objects;
