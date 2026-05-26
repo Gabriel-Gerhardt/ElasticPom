@@ -30,7 +30,7 @@ public class PaperService {
         List<String> paperIds = elasticRepository.findByQuery(query, pageable).stream().map(ElasticPaperDocument::getId).toList();
         System.out.println(paperIds);
         if (paperIds.isEmpty()) {
-            throw new PaperNotInElasticException("There is no paper in the elastic for the page" + page);
+            throw new PaperNotInElasticException("There is no paper in the elastic for the page " + page + " and this query " + query);
         }
         return getPapersByIds(paperIds);
     }
@@ -41,7 +41,7 @@ public class PaperService {
         List<String> paperIds = elasticRepository.findAll(pageable).stream().map(ElasticPaperDocument::getId).toList();
 
         if (paperIds.isEmpty()) {
-            throw new PaperNotInElasticException("There is no paper in the elastic for the page" + page);
+            throw new PaperNotInElasticException("There is no paper in the elastic for the page " + page);
         }
         return getPapersByIds(paperIds);
     }
