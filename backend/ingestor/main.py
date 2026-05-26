@@ -42,7 +42,7 @@ def main():
                 "format": {
                     "type": "keyword"
                 },
-                "indentifier": {
+                "identifier": {
                     "type": "keyword"
                 },
                 "source": {
