@@ -18,54 +18,49 @@ def main():
                 "id": {
                     "type": "keyword"
                 },
-                "submitter": {
+                "datestamp": {
+                    "type": "date",
+                },
+                "creator": {
                     "type": "text",
                 },
-                "authors": {
+                "subject": {
                     "type": "text",
                 },
-                "comments": {
+                "description": {
                     "type": "text",
                 },
-                "journal-ref": {
+                "publisher": {
                     "type": "text",
                 },
-                "doi": {
+                "date": {
+                    "type": "date",
+                },
+                "type": {
+                    "type": "keyword"
+                },
+                "format": {
+                    "type": "keyword"
+                },
+                "indentifier": {
+                    "type": "keyword"
+                },
+                "source": {
                     "type": "text"
                 },
-                "categories": {
-                    "type": "text",
+                "language": {
+                    "type": "keyword"
                 },
-                "license": {
-                    "type": "text",
+                "relation": {
+                    "type": "keyword"
                 },
-                "abstract": {
-                    "type": "text",
+                "coverage": {
+                    "type": "text"
                 },
-                "version": {
-                    "type": "nested",
-                    "properties": {
-                        "version": {
-                            "type": "text",
-                        },
-                        "created":{
-                            "type": "text",
-                        }
-                    }
+
+                "rights": {
+                    "type": "text"
                 },
-                "created_date":{
-                    "type": "date",
-                },
-                "update_date": {
-                    "type": "date",
-                },
-                "authors_parsed": {
-                    "type": "keyword",
-                        
-                },
-                "categories_parsed": {
-                    "type": "keyword",
-                }
             }
         }
     }
