@@ -18,10 +18,10 @@ Data ingestion → MongoDB → Elasticsearch → Backend → Frontend
 - Elasticsearch 9.3.2
 - React + JavaScript (frontend)
   
-## Datasets
+## Data
 
-- arXiv dataset  
-  https://www.kaggle.com/datasets/Cornell-University/arxiv/data
+- OAI-PMH protocol
+  https://www.openarchives.org/pmh/
 
 ## Features
 
