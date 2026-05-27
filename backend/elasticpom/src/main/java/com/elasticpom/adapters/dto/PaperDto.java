@@ -17,7 +17,8 @@ public class PaperDto {
     private String id;
     private String paperId;
     private LocalDate datestamp;
-    private String creator;
+    private String title;
+    private List<String> creators;
     private List<String> subjects;
     private String description;
     private String publisher;

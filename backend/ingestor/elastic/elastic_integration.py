@@ -1,15 +1,24 @@
 import requests
 from elasticsearch import Elasticsearch, helpers
+from elasticsearch.helpers import BulkIndexError
+
 
 class ElasticIntegration:
     elasticsearch_host = "http://localhost:9200"
     client = None
+
     def __init__(self, elasticsearch_host):
         self.elasticsearch_host = elasticsearch_host
         self.client = Elasticsearch(self.elasticsearch_host)
 
     def save_data(self, actions):
-        helpers.bulk(self.client, actions, chunk_size=1000)
+        try:
+            helpers.bulk(self.client, actions, chunk_size=1000)
+        except BulkIndexError as e:
+            print(f"Total failures: {len(e.errors)}")
+            for err in e.errors[:3]:
+                print(err)
+            raise
 
     def put_mapping(self, index, mapping):
         r = requests.head(self.elasticsearch_host + "/" + index)

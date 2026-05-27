@@ -14,6 +14,7 @@ public class Paper {
     private String id;
     private String paperId;
     private LocalDate datestamp;
+    private String title;
     private List<String> creators;
     private List<String> subjects;
     private String description;

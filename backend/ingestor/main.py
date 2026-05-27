@@ -6,6 +6,7 @@ from mongo.mongo_data_parser import MongoDataParser
 from mongo.mongo_integration import MongoIntegration
 from utils.paper_parser import PaperParser
 from utils.time_converter import TimeConverter
+from oaipmh_scythe import Scythe
 
 
 def main():
@@ -20,6 +21,9 @@ def main():
                 },
                 "datestamp": {
                     "type": "date",
+                },
+                "title": {
+                    "type": "text",
                 },
                 "creators": {
                     "type": "text",
@@ -68,7 +72,6 @@ def main():
         }
     }
     index = "paper"
-    dataset_path = "datasets/arxiv-dataset.json"
 
     paper_parser = PaperParser()
     time_converter = TimeConverter()
@@ -83,18 +86,18 @@ def main():
     elastic_integration = ElasticIntegration(elasticsearch_host="http://localhost:9200")
     elastic_integration.put_mapping(index, mapping)
 
-    ingestor = Ingestor()
+    ingestor = Ingestor("https://oaipmh.arxiv.org/oai","oai_dc","cs:cs:IR")
     total_start = time.time()
 
-    for chunk in ingestor.run(dataset_path):
+    for chunk in ingestor.run():
         chunk_start = time.time()
+        paper_list = paper_parser.parse(chunk)
 
-        documents = mongo_parser.generate_mongo(chunk)
+        documents = mongo_parser.generate_mongo(paper_list)
         mongo_integration.bulk_save(documents)
 
-        actions = elastic_parser.generate_actions(chunk=chunk)
+        actions = elastic_parser.generate_actions(chunk=paper_list)
         elastic_integration.save_data(actions)
-
 
         chunk_end = time.time()
         print(f"Chunk time: {chunk_end - chunk_start:.2f}s")
