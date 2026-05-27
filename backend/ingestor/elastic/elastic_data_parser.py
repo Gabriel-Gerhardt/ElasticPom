@@ -11,7 +11,7 @@ class ElasticDataParser:
         for paper in chunk:
             source = self.mount_source(paper)
             yield {
-                "_id": paper["identifier"],
+                "_id": paper["paper_id"],
                 "_index": self.index_name,
                 "_source": source,
             }
@@ -27,5 +27,5 @@ class ElasticDataParser:
         if "date" in source:
             source["date"] = self.time_converter.to_iso(source["date"])
 
-        source["id"] = paper["identifier"]
+        source["id"] = paper["paper_id"]
         return source
