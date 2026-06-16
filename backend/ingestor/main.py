@@ -31,6 +31,9 @@ def main():
                 },
                 "subjects": {
                     "type": "text",
+                    "fields": {
+                        "keyword": { "type": "keyword" }
+                    }
                 },
                 "description": {
                     "type": "text",
@@ -40,6 +43,9 @@ def main():
                 },
                 "contributors": {
                     "type": "text",
+                    "fields": {
+                        "keyword": { "type": "keyword" }
+                    }
                 },
                 "date": {
                     "type": "date",
