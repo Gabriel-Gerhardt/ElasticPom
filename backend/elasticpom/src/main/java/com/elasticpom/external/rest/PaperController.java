@@ -36,11 +36,11 @@ public class PaperController {
     @PostMapping("/search-by-query")
     public ResponseEntity<List<PaperDto>> searchPaperByQuery(@RequestBody @Validated PaperQueryRequest request){
         validateElasticPageSize(request.pageSize(), request.page());
-        List<PaperDto> paperList = service.getPapersByQuery(request.query(),request.pageSize(), request.page()).stream().map(paperMapper::toDto).toList();
+        List<PaperDto> paperList = service.getPapersByQuery(request.query(), request.pageSize(), request.page(), request.filters()).stream().map(paperMapper::toDto).toList();
         return ResponseEntity.ok(paperList);    
     }
 
-    public void validateElasticPageSize(Integer pageSize, Integer page){
+    private void validateElasticPageSize(Integer pageSize, Integer page){
         if ((long) page * pageSize >= 10000) {
             throw new BadRequestException("Page too large for Elasticsearch");
         }
