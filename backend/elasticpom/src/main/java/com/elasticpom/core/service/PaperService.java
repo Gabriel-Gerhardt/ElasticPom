@@ -1,5 +1,6 @@
 package com.elasticpom.core.service;
 
+import co.elastic.clients.elasticsearch._types.KnnSearch;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
@@ -135,6 +136,40 @@ public class PaperService {
 
         if (paperIds.isEmpty()) {
             throw new PaperNotInElasticException("There is no paper in the elastic for the page " + page);
+        }
+        return getPapersByIds(paperIds);
+    }
+
+    public List<Paper> getPapersBySemanticSearch(String query, float[] queryVector, Integer pageSize, Integer page) {
+        if (query == null) {
+            throw new PaperNotInElasticException("Query cannot be null");
+        }
+
+        List<Float> vectorList = new ArrayList<>(queryVector.length);
+        for (float v : queryVector) {
+            vectorList.add(v);
+        }
+
+        KnnSearch knnSearch = KnnSearch.of(k -> k
+                .field("embedPaper")
+                .queryVector(vectorList)
+                .numCandidates(pageSize * 10)
+                .k(pageSize));
+
+        NativeQuery nativeQuery = NativeQuery.builder()
+                .withKnnSearches(knnSearch)
+                .withPageable(PageRequest.of(page, pageSize))
+                .withSourceFilter(new FetchSourceFilter(true, new String[]{"id"}, null))
+                .build();
+
+        List<String> paperIds = elasticsearchOperations.search(nativeQuery, ElasticPaperDocument.class)
+                .stream()
+                .map(SearchHit::getContent)
+                .map(ElasticPaperDocument::getId)
+                .toList();
+
+        if (paperIds.isEmpty()) {
+            throw new PaperNotInElasticException("No papers found for the semantic search query: " + query);
         }
         return getPapersByIds(paperIds);
     }
