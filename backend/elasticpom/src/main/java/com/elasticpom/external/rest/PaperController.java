@@ -4,6 +4,7 @@ import com.elasticpom.adapters.dto.PaperDto;
 import com.elasticpom.adapters.dto.request.PaperQueryRequest;
 import com.elasticpom.core.model.FilterDefinition;
 import com.elasticpom.core.service.FilterService;
+import com.elasticpom.adapters.dto.request.SemanticSearchRequest;
 import com.elasticpom.core.service.PaperService;
 import com.elasticpom.exception.BadRequestException;
 import com.elasticpom.adapters.PaperMapper;
@@ -46,6 +47,15 @@ public class PaperController {
     @GetMapping("/filters")
     public ResponseEntity<List<FilterDefinition>> getFilters() {
         return ResponseEntity.ok(filterService.getAvailableFilters());
+    }
+
+    @PostMapping("/semantic-search")
+    public ResponseEntity<List<PaperDto>> semanticSearch(@RequestBody @Validated SemanticSearchRequest request) {
+        validateElasticPageSize(request.pageSize(), request.page());
+        List<PaperDto> papers = service.getPapersBySemanticSearch(
+                request.query(), request.queryVector(), request.pageSize(), request.page()
+        ).stream().map(paperMapper::toDto).toList();
+        return ResponseEntity.ok(papers);
     }
 
     private void validateElasticPageSize(Integer pageSize, Integer page){
