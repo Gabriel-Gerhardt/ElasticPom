@@ -1,8 +1,21 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import FilterSidebar from './FilterSidebar.svelte';
 import type { PaperDto } from '$lib/types/paper';
-import type { FilterRequest } from '$lib/types/api';
+import type { FilterDefinition, FilterRequest } from '$lib/types/api';
+
+// Mock the filters API
+vi.mock('$lib/api/filters', () => ({
+	getFilters: vi.fn()
+}));
+
+import { getFilters } from '$lib/api/filters';
+
+const mockFilters: FilterDefinition[] = [
+	{ filtername: 'subjects.keyword', order: 1, type: 'option' },
+	{ filtername: 'contributors.keyword', order: 2, type: 'option' },
+	{ filtername: 'date', order: 3, type: 'range' }
+];
 
 function makePaper(overrides: Partial<PaperDto> = {}): PaperDto {
 	return {
@@ -11,10 +24,10 @@ function makePaper(overrides: Partial<PaperDto> = {}): PaperDto {
 		datestamp: null,
 		title: 'Test Paper',
 		creators: [],
-		subjects: [],
+		subjects: ['Machine Learning', 'NLP'],
 		description: '',
 		publisher: 'MIT Press',
-		contributors: [],
+		contributors: ['Alice', 'Bob'],
 		date: '2022',
 		type: 'article',
 		format: 'pdf',
@@ -31,10 +44,13 @@ function makePaper(overrides: Partial<PaperDto> = {}): PaperDto {
 }
 
 const papers: PaperDto[] = [
-	makePaper({ language: 'en', type: 'article', paperType: 'research', publisher: 'MIT Press' }),
-	makePaper({ id: '2', language: 'fr', type: 'thesis', paperType: 'survey', publisher: 'Springer' }),
-	makePaper({ id: '3', language: 'en', type: 'article', paperType: 'research', publisher: 'MIT Press' })
+	makePaper({ subjects: ['Machine Learning', 'NLP'], contributors: ['Alice', 'Bob'] }),
+	makePaper({ id: '2', subjects: ['Computer Vision'], contributors: ['Alice', 'Charlie'] })
 ];
+
+beforeEach(() => {
+	vi.mocked(getFilters).mockResolvedValue(mockFilters);
+});
 
 describe('FilterSidebar', () => {
 	it('renders the "Filters" heading', () => {
@@ -44,72 +60,82 @@ describe('FilterSidebar', () => {
 		expect(getByText('Filters')).toBeInTheDocument();
 	});
 
-	it('renders section headers for filter fields that have values', () => {
+	it('renders section headers for loaded filter definitions', async () => {
 		const { getByText } = render(FilterSidebar, {
 			props: { papers, activeFilters: [] }
 		});
-		expect(getByText('Language')).toBeInTheDocument();
-		expect(getByText('Type')).toBeInTheDocument();
-		expect(getByText('Paper Type')).toBeInTheDocument();
-		expect(getByText('Publisher')).toBeInTheDocument();
+		await waitFor(() => {
+			expect(getByText('Subjects')).toBeInTheDocument();
+			expect(getByText('Contributors')).toBeInTheDocument();
+			expect(getByText('Date')).toBeInTheDocument();
+		});
 	});
 
-	it('renders unique language options extracted from papers', () => {
+	it('renders unique subjects extracted from papers', async () => {
 		const { getByText } = render(FilterSidebar, {
 			props: { papers, activeFilters: [] }
 		});
-		// 'en' and 'fr' should appear as buttons
-		expect(getByText('en')).toBeInTheDocument();
-		expect(getByText('fr')).toBeInTheDocument();
-	});
-
-	it('renders unique type options extracted from papers', () => {
-		const { getAllByText, getByText } = render(FilterSidebar, {
-			props: { papers, activeFilters: [] }
+		await waitFor(() => {
+			expect(getByText('Machine Learning')).toBeInTheDocument();
+			expect(getByText('NLP')).toBeInTheDocument();
+			expect(getByText('Computer Vision')).toBeInTheDocument();
 		});
-		expect(getByText('article')).toBeInTheDocument();
-		expect(getByText('thesis')).toBeInTheDocument();
 	});
 
-	it('renders unique publisher options extracted from papers', () => {
+	it('renders unique contributors extracted from papers', async () => {
 		const { getByText } = render(FilterSidebar, {
 			props: { papers, activeFilters: [] }
 		});
-		expect(getByText('MIT Press')).toBeInTheDocument();
-		expect(getByText('Springer')).toBeInTheDocument();
+		await waitFor(() => {
+			expect(getByText('Alice')).toBeInTheDocument();
+			expect(getByText('Bob')).toBeInTheDocument();
+			expect(getByText('Charlie')).toBeInTheDocument();
+		});
 	});
 
-	it('emits "change" event with new filter added when filter button is clicked', async () => {
+	it('renders a date input for range filter', async () => {
+		const { container } = render(FilterSidebar, {
+			props: { papers, activeFilters: [] }
+		});
+		await waitFor(() => {
+			const input = container.querySelector('input[type="date"]');
+			expect(input).toBeInTheDocument();
+		});
+	});
+
+	it('emits "change" event with new filter added when option button is clicked', async () => {
 		const { getByText, component } = render(FilterSidebar, {
 			props: { papers, activeFilters: [] }
 		});
 		const changeHandler = vi.fn();
 		component.$on('change', changeHandler);
 
-		await fireEvent.click(getByText('en'));
+		await waitFor(() => expect(getByText('NLP')).toBeInTheDocument());
+		await fireEvent.click(getByText('NLP'));
 
 		expect(changeHandler).toHaveBeenCalledOnce();
 		const newFilters: FilterRequest[] = changeHandler.mock.calls[0][0].detail;
-		expect(newFilters).toContainEqual({ filter_name: 'language', filter_option: 'en' });
+		expect(newFilters).toContainEqual({ filter_name: 'subjects.keyword', filter_option: 'NLP' });
 	});
 
-	it('emits "change" event removing filter when active filter button is clicked again (toggle off)', async () => {
-		const activeFilters: FilterRequest[] = [{ filter_name: 'language', filter_option: 'en' }];
+	it('emits "change" removing filter when active filter button is clicked again (toggle off)', async () => {
+		const activeFilters: FilterRequest[] = [{ filter_name: 'subjects.keyword', filter_option: 'NLP' }];
 		const { getByText, component } = render(FilterSidebar, {
 			props: { papers, activeFilters }
 		});
 		const changeHandler = vi.fn();
 		component.$on('change', changeHandler);
 
-		await fireEvent.click(getByText('en'));
+		await waitFor(() => expect(getByText('NLP')).toBeInTheDocument());
+		await fireEvent.click(getByText('NLP'));
 
 		expect(changeHandler).toHaveBeenCalledOnce();
 		const newFilters: FilterRequest[] = changeHandler.mock.calls[0][0].detail;
-		expect(newFilters).not.toContainEqual({ filter_name: 'language', filter_option: 'en' });
+		expect(newFilters).not.toContainEqual({ filter_name: 'subjects.keyword', filter_option: 'NLP' });
 	});
 
 	it('shows "Clear all filters" button when activeFilters is non-empty', () => {
-		const activeFilters: FilterRequest[] = [{ filter_name: 'language', filter_option: 'en' }];
+		const activeFilters: FilterRequest[] = [{ filter_name: 'subjects.keyword', filter_option: 'NLP' }];
 		const { getByText } = render(FilterSidebar, {
 			props: { papers, activeFilters }
 		});
@@ -124,7 +150,7 @@ describe('FilterSidebar', () => {
 	});
 
 	it('emits "change" with empty array when "Clear all filters" is clicked', async () => {
-		const activeFilters: FilterRequest[] = [{ filter_name: 'language', filter_option: 'en' }];
+		const activeFilters: FilterRequest[] = [{ filter_name: 'subjects.keyword', filter_option: 'NLP' }];
 		const { getByText, component } = render(FilterSidebar, {
 			props: { papers, activeFilters }
 		});
@@ -137,20 +163,44 @@ describe('FilterSidebar', () => {
 		expect(changeHandler.mock.calls[0][0].detail).toEqual([]);
 	});
 
-	it('renders nothing for filter sections with no values', () => {
-		// papers with no type — those sections should not appear
-		const papersNoType = papers.map(p => ({ ...p, type: '' }));
-		const { queryByText } = render(FilterSidebar, {
-			props: { papers: papersNoType, activeFilters: [] }
-		});
-		expect(queryByText('Type')).not.toBeInTheDocument();
-	});
-
-	it('renders no filter options when papers array is empty', () => {
+	it('renders no option sections when papers array is empty', async () => {
 		const { queryByText } = render(FilterSidebar, {
 			props: { papers: [], activeFilters: [] }
 		});
-		// No language/type/paperType/publisher options to show
-		expect(queryByText('Language')).not.toBeInTheDocument();
+		await waitFor(() => {
+			// Subjects and Contributors sections should not appear (no values)
+			expect(queryByText('Subjects')).not.toBeInTheDocument();
+			expect(queryByText('Contributors')).not.toBeInTheDocument();
+		});
+	});
+
+	it('falls back to empty filterDefs when getFilters rejects', async () => {
+		vi.mocked(getFilters).mockRejectedValue(new Error('network error'));
+		const { queryByText } = render(FilterSidebar, {
+			props: { papers, activeFilters: [] }
+		});
+		await waitFor(() => {
+			expect(queryByText('Subjects')).not.toBeInTheDocument();
+		});
+	});
+
+	it('emits "change" with date filter when date input changes', async () => {
+		const { container, component } = render(FilterSidebar, {
+			props: { papers, activeFilters: [] }
+		});
+		const changeHandler = vi.fn();
+		component.$on('change', changeHandler);
+
+		await waitFor(() => {
+			const input = container.querySelector('input[type="date"]');
+			expect(input).toBeInTheDocument();
+		});
+
+		const input = container.querySelector('input[type="date"]') as HTMLInputElement;
+		await fireEvent.change(input, { target: { value: '2023-06-15' } });
+
+		expect(changeHandler).toHaveBeenCalledOnce();
+		const newFilters: FilterRequest[] = changeHandler.mock.calls[0][0].detail;
+		expect(newFilters).toContainEqual({ filter_name: 'date', filter_option: '2023-06-15' });
 	});
 });

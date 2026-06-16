@@ -2,6 +2,7 @@ package com.elasticpom.external.rest;
 
 import com.elasticpom.adapters.PaperMapper;
 import com.elasticpom.core.model.Paper;
+import com.elasticpom.core.service.FilterService;
 import com.elasticpom.core.service.PaperService;
 import com.elasticpom.exception.BadRequestException;
 import com.elasticpom.exception.InvalidFilterException;
@@ -38,6 +39,9 @@ class PaperControllerFilterTest {
 
     @MockitoBean
     private PaperMapper paperMapper;
+
+    @MockitoBean
+    private FilterService filterService;
 
     // -------------------------------------------------------------------------
     // Filters field is deserialized from snake_case JSON
