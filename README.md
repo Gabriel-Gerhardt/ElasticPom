@@ -16,7 +16,7 @@ Data ingestion → MongoDB → Elasticsearch → Backend → Frontend
 - Java 21 + Spring Boot (backend)
 - MongoDB 8.2.6
 - Elasticsearch 9.3.2
-- React + JavaScript (frontend)
+- SvelteKit + Typescript + Tailwind (frontend)
   
 ## Data
 
