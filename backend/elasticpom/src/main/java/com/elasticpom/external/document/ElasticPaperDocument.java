@@ -9,7 +9,6 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-
 @Data
 @Builder
 @NoArgsConstructor
@@ -18,7 +17,10 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 public class ElasticPaperDocument {
 
     @Id
-    @Field(type = FieldType.Text)
+    @Field(type = FieldType.Keyword)
     private String id;
+
+    @Field(type = FieldType.Dense_Vector, dims = 384)
+    private float[] embedPaper;
 
 }

@@ -1,15 +1,23 @@
+from embedding.embedding_service import EmbeddingService
 from utils.time_converter import TimeConverter
 from utils.paper_parser import PaperParser
 
+
 class ElasticDataParser:
-    def __init__(self, index_name, time_converter: TimeConverter, paper_parser: PaperParser):
+    def __init__(self, index_name, time_converter: TimeConverter, paper_parser: PaperParser, embedding_service: EmbeddingService):
         self.index_name = index_name
         self.time_converter = time_converter
         self.paper_parser = paper_parser
+        self.embedding_service = embedding_service
 
     def generate_actions(self, chunk):
-        for paper in chunk:
+        texts = [self._build_embed_text(p) for p in chunk]
+        vectors = self.embedding_service.embed_batch(texts)
+
+        for i, (paper, vector) in enumerate(zip(chunk, vectors)):
             source = self.mount_source(paper)
+            if texts[i]:
+                source["embed_paper"] = vector
             yield {
                 "_id": paper["paper_id"],
                 "_index": self.index_name,
@@ -29,3 +37,14 @@ class ElasticDataParser:
 
         source["id"] = paper["paper_id"]
         return source
+
+    @staticmethod
+    def _build_embed_text(paper: dict) -> str:
+        parts = [
+            paper.get("title"),
+            paper.get("description"),
+            " ".join(paper.get("subjects") or []),
+            " ".join(paper.get("creators") or []),
+            paper.get("publisher"),
+        ]
+        return " ".join(p for p in parts if p)
