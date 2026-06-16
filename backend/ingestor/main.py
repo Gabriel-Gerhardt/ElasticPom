@@ -1,5 +1,6 @@
 from elastic.elastic_data_parser import ElasticDataParser
 from elastic.elastic_integration import ElasticIntegration
+from embedding.embedding_service import EmbeddingService
 import time
 from ingestor import Ingestor
 from mongo.mongo_data_parser import MongoDataParser
@@ -68,6 +69,12 @@ def main():
                 "rights": {
                     "type": "text"
                 },
+                "embed_paper": {
+                    "type": "dense_vector",
+                    "dims": 384,
+                    "index": True,
+                    "similarity": "cosine",
+                },
             }
         }
     }
@@ -75,6 +82,7 @@ def main():
 
     paper_parser = PaperParser()
     time_converter = TimeConverter()
+    embedding_service = EmbeddingService()
 
     mongo_parser = MongoDataParser(paper_parser)
     mongo_integration = MongoIntegration(
@@ -82,7 +90,7 @@ def main():
         database="elasticpom",
         collection="Paper"
     )
-    elastic_parser = ElasticDataParser(index, time_converter, paper_parser)
+    elastic_parser = ElasticDataParser(index, time_converter, paper_parser, embedding_service)
     elastic_integration = ElasticIntegration(elasticsearch_host="http://localhost:9200")
     elastic_integration.put_mapping(index, mapping)
 
