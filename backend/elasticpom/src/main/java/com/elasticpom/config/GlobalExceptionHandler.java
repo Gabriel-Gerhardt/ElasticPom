@@ -1,6 +1,7 @@
 package com.elasticpom.config;
 
 import com.elasticpom.exception.BadRequestException;
+import com.elasticpom.exception.InvalidFilterException;
 import com.elasticpom.exception.PaperNotInElasticException;
 import org.springframework.data.elasticsearch.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -18,7 +19,7 @@ public class GlobalExceptionHandler {
          }
          @ExceptionHandler(BadRequestException.class)
             public ResponseEntity<ApiResponse> handleBadRequest(BadRequestException ex) {
-             ApiResponse apiResponse = new ApiResponse(HttpStatus.BAD_REQUEST.value(), "Request of the resource is invalid", ex.getMessage());;
+             ApiResponse apiResponse = new ApiResponse(HttpStatus.BAD_REQUEST.value(), "Request of the resource is invalid", ex.getMessage());
              return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(apiResponse);
          }
     @ExceptionHandler(PaperNotInElasticException.class)
@@ -26,6 +27,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(new ApiResponse(404, e.getMessage(), "There is no such papers in elastic for this query"));
+    }
+
+    @ExceptionHandler(InvalidFilterException.class)
+    public ResponseEntity<ApiResponse> handleInvalidFilter(InvalidFilterException e) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(new ApiResponse(404, "Invalid filter", e.getMessage()));
     }
 
 }

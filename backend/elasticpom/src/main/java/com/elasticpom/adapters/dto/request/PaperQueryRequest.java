@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
 
 public record PaperQueryRequest(
 
@@ -13,7 +14,8 @@ public record PaperQueryRequest(
         @Max(value = 50, message = "Page size should be less than or equal to 50")
         Integer pageSize,
         @Min(value = 0, message = "Page number should be bigger than 0")
-        Integer page
+        Integer page,
+        List<FilterRequest> filters
 ) {
 
 }
