@@ -68,47 +68,8 @@ public class PaperService {
         return getPapersByIds(paperIds);
     }
 
-    @SuppressWarnings("unchecked")
     private List<String> findByQueryWithFilters(String query, List<FilterRequest> filters, Pageable pageable) {
-        Map<String, Object> mapping = elasticsearchOperations.indexOps(ElasticPaperDocument.class).getMapping();
-        Map<String, Object> properties = (Map<String, Object>) mapping.get("properties");
-
-        if (properties == null) {
-            throw new InvalidFilterException("Index mapping is unavailable");
-        }
-
-        List<Query> filterClauses = new ArrayList<>();
-        for (FilterRequest filter : filters) {
-            Map<String, Object> fieldMapping = resolveFieldMapping(properties, filter.filterName());
-            String fieldType = (String) fieldMapping.get("type");
-
-            if (RANGE_TYPES.contains(fieldType)) {
-                validateRangeValue(filter.filterName(), filter.filterOption(), fieldType);
-                String rangeEnd = filter.filterOptionEnd() != null ? filter.filterOptionEnd() : filter.filterOption();
-                if (filter.filterOptionEnd() != null) {
-                    validateRangeValue(filter.filterName(), filter.filterOptionEnd(), fieldType);
-                }
-                filterClauses.add(Query.of(q -> q.range(RangeQuery.of(r -> r
-                        .untyped(u -> u.field(filter.filterName())
-                                .gte(co.elastic.clients.json.JsonData.of(filter.filterOption()))
-                                .lte(co.elastic.clients.json.JsonData.of(rangeEnd)))))));
-            } else {
-                filterClauses.add(Query.of(q -> q.term(TermQuery.of(t -> t
-                        .field(filter.filterName())
-                        .value(filter.filterOption())))));
-            }
-        }
-
-        Query multiMatch = Query.of(q -> q.multiMatch(m -> m
-                .query(query)
-                .fields("title^1.5", "subjects", "description^0.8", "creators")
-                .tieBreaker(0.3)));
-
-        List<Query> mustClauses = List.of(multiMatch);
-        List<Query> finalFilterClauses = filterClauses;
-        Query boolQuery = Query.of(q -> q.bool(BoolQuery.of(b -> b
-                .must(mustClauses)
-                .filter(finalFilterClauses))));
+        Query boolQuery = buildFilteredBoolQuery(query, filters);
 
         NativeQuery nativeQuery = NativeQuery.builder()
                 .withQuery(boolQuery)
@@ -121,6 +82,63 @@ public class PaperService {
                 .map(SearchHit::getContent)
                 .map(ElasticPaperDocument::getId)
                 .toList();
+    }
+
+    /**
+     * Builds the same bool query (multi-match + filter clauses) used by both
+     * {@code getPapersByQuery} and {@code getDistinctFilterValues}, so the filter-options
+     * aggregation runs against the exact same scoped result set as the search itself.
+     * A blank/null query is treated as "match everything" (no multi-match clause) so that
+     * the aggregation can also be scoped purely by filters with no free-text query.
+     */
+    @SuppressWarnings("unchecked")
+    private Query buildFilteredBoolQuery(String query, List<FilterRequest> filters) {
+        Map<String, Object> mapping = elasticsearchOperations.indexOps(ElasticPaperDocument.class).getMapping();
+        Map<String, Object> properties = (Map<String, Object>) mapping.get("properties");
+
+        if (properties == null) {
+            throw new InvalidFilterException("Index mapping is unavailable");
+        }
+
+        List<Query> filterClauses = new ArrayList<>();
+        if (filters != null) {
+            for (FilterRequest filter : filters) {
+                Map<String, Object> fieldMapping = resolveFieldMapping(properties, filter.filterName());
+                String fieldType = (String) fieldMapping.get("type");
+
+                if (RANGE_TYPES.contains(fieldType)) {
+                    validateRangeValue(filter.filterName(), filter.filterOption(), fieldType);
+                    String rangeEnd = filter.filterOptionEnd() != null ? filter.filterOptionEnd() : filter.filterOption();
+                    if (filter.filterOptionEnd() != null) {
+                        validateRangeValue(filter.filterName(), filter.filterOptionEnd(), fieldType);
+                    }
+                    filterClauses.add(Query.of(q -> q.range(RangeQuery.of(r -> r
+                            .untyped(u -> u.field(filter.filterName())
+                                    .gte(co.elastic.clients.json.JsonData.of(filter.filterOption()))
+                                    .lte(co.elastic.clients.json.JsonData.of(rangeEnd)))))));
+                } else {
+                    String termField = resolveTermFieldName(properties, filter.filterName());
+                    filterClauses.add(Query.of(q -> q.term(TermQuery.of(t -> t
+                            .field(termField)
+                            .value(filter.filterOption())))));
+                }
+            }
+        }
+
+        List<Query> mustClauses;
+        if (query == null || query.isBlank()) {
+            mustClauses = List.of(Query.of(q -> q.matchAll(m -> m)));
+        } else {
+            mustClauses = List.of(Query.of(q -> q.multiMatch(m -> m
+                    .query(query)
+                    .fields("title^1.5", "subjects", "description^0.8", "creators")
+                    .tieBreaker(0.3))));
+        }
+
+        List<Query> finalFilterClauses = filterClauses;
+        return Query.of(q -> q.bool(BoolQuery.of(b -> b
+                .must(mustClauses)
+                .filter(finalFilterClauses))));
     }
 
     /**
@@ -158,6 +176,26 @@ public class PaperService {
         return (Map<String, Object>) ((Map<String, Object>) fields).get(subName);
     }
 
+    /**
+     * Resolves the actual ES field name to use in a term query/aggregation for a logical,
+     * dot-free filter name (e.g. "creators"). If the base field's mapping declares a
+     * "keyword" multi-field (i.e. {@code fields.keyword}), that sub-field is targeted instead
+     * of the base field, since term-level queries/aggregations need exact (not analyzed) values.
+     * Callers that already pass an explicit dotted name (e.g. "subjects.keyword") are passed
+     * through unchanged - resolution only kicks in for plain, dot-free names.
+     */
+    @SuppressWarnings("unchecked")
+    private String resolveTermFieldName(Map<String, Object> properties, String filterName) {
+        Map<String, Object> fieldMapping = resolveFieldMapping(properties, filterName);
+        if (filterName.indexOf('.') < 0) {
+            Object fields = fieldMapping.get("fields");
+            if (fields instanceof Map && ((Map<String, Object>) fields).get("keyword") != null) {
+                return filterName + ".keyword";
+            }
+        }
+        return filterName;
+    }
+
     private static final Set<String> NUMERIC_TYPES = Set.of("integer", "long", "float", "double");
 
     private void validateRangeValue(String fieldName, String value, String fieldType) {
@@ -175,20 +213,25 @@ public class PaperService {
     private static final String DISTINCT_VALUES_AGG_NAME = "distinct_values";
 
     @SuppressWarnings("unchecked")
-    public List<String> getDistinctFilterValues(String filterName) {
+    public List<String> getDistinctFilterValues(String query, String filterName, List<FilterRequest> filters) {
         Map<String, Object> mapping = elasticsearchOperations.indexOps(ElasticPaperDocument.class).getMapping();
         Map<String, Object> properties = (Map<String, Object>) mapping.get("properties");
 
         if (properties == null) {
             throw new InvalidFilterException("Filter '" + filterName + "' does not exist in the index mapping");
         }
-        resolveFieldMapping(properties, filterName);
+        String termField = resolveTermFieldName(properties, filterName);
+
+        List<FilterRequest> scopingFilters = filters == null ? null :
+                filters.stream().filter(f -> !f.filterName().equals(filterName)).toList();
+        Query boolQuery = buildFilteredBoolQuery(query, scopingFilters);
 
         co.elastic.clients.elasticsearch._types.aggregations.Aggregation aggregation =
                 co.elastic.clients.elasticsearch._types.aggregations.Aggregation.of(a -> a
-                        .terms(t -> t.field(filterName).size(1000)));
+                        .terms(t -> t.field(termField).size(1000)));
 
         NativeQuery nativeQuery = NativeQuery.builder()
+                .withQuery(boolQuery)
                 .withMaxResults(0)
                 .withAggregation(DISTINCT_VALUES_AGG_NAME, aggregation)
                 .build();

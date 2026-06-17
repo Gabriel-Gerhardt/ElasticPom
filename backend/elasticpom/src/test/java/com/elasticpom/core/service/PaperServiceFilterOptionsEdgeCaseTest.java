@@ -22,12 +22,12 @@ import static org.mockito.Mockito.when;
 /**
  * Edge cases for getDistinctFilterValues / resolveFieldMapping not covered by
  * the multi-field-name tests already in PaperServiceFilterTest (which check a
- * single-dot "subjects.keyword" valid case and a single-dot unknown-subfield
- * case). Covers:
+ * single-dot "subjects.keyword" valid case, a single-dot unknown-subfield case,
+ * and the plain-name ".keyword" auto-resolution case for "creators"). Covers:
  * - filter_name with more than one dot (e.g. "a.b.c")
  * - empty-string filter_name
- * - a filter_name that exists as a Mongo-seeded Filter (e.g. "contributors.keyword")
- *   but is absent from the ES index mapping entirely (base field not in mapping at all)
+ * - a logical filter_name (e.g. "creators") that is absent from the ES index
+ *   mapping entirely (base field not in mapping at all)
  */
 @ExtendWith(MockitoExtension.class)
 class PaperServiceFilterOptionsEdgeCaseTest {
@@ -66,7 +66,7 @@ class PaperServiceFilterOptionsEdgeCaseTest {
         when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
         when(indexOperations.getMapping()).thenReturn(mapping);
 
-        assertThatThrownBy(() -> paperService.getDistinctFilterValues("a.b.c"))
+        assertThatThrownBy(() -> paperService.getDistinctFilterValues(null, "a.b.c", null))
                 .isInstanceOf(InvalidFilterException.class)
                 .hasMessageContaining("a.b.c");
     }
@@ -80,15 +80,15 @@ class PaperServiceFilterOptionsEdgeCaseTest {
         when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
         when(indexOperations.getMapping()).thenReturn(mapping);
 
-        assertThatThrownBy(() -> paperService.getDistinctFilterValues(""))
+        assertThatThrownBy(() -> paperService.getDistinctFilterValues(null, "", null))
                 .isInstanceOf(InvalidFilterException.class);
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void getDistinctFilterValues_mongoSeededFilterNameAbsentFromEsMapping_throwsInvalidFilterException() {
-        // "contributors.keyword" is a Mongo-seeded filter name (see FILTERS in the
-        // ingestor), but here the ES mapping has no "contributors" property at all -
+        // "creators" is a Mongo-seeded logical filter name (see FILTERS in the
+        // ingestor), but here the ES mapping has no "creators" property at all -
         // simulating an out-of-sync index (e.g. mapping not yet reindexed). The
         // filter-options endpoint must still reject it rather than NPE or return
         // bogus results, even though the name is "known" to the Filters collection.
@@ -99,9 +99,9 @@ class PaperServiceFilterOptionsEdgeCaseTest {
         when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
         when(indexOperations.getMapping()).thenReturn(mapping);
 
-        assertThatThrownBy(() -> paperService.getDistinctFilterValues("contributors.keyword"))
+        assertThatThrownBy(() -> paperService.getDistinctFilterValues(null, "creators", null))
                 .isInstanceOf(InvalidFilterException.class)
-                .hasMessageContaining("contributors.keyword");
+                .hasMessageContaining("creators");
     }
 
     @Test
@@ -114,7 +114,7 @@ class PaperServiceFilterOptionsEdgeCaseTest {
         when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
         when(indexOperations.getMapping()).thenReturn(mapping);
 
-        assertThatThrownBy(() -> paperService.getDistinctFilterValues("weird.keyword"))
+        assertThatThrownBy(() -> paperService.getDistinctFilterValues(null, "weird.keyword", null))
                 .isInstanceOf(InvalidFilterException.class)
                 .hasMessageContaining("weird.keyword");
     }

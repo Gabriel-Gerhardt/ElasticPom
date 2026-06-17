@@ -388,7 +388,7 @@ class PaperServiceFilterTest {
                 .thenReturn(searchHits);
         when(searchHits.getAggregations()).thenReturn(aggregationsContainer);
 
-        List<String> result = paperService.getDistinctFilterValues("subjects.keyword");
+        List<String> result = paperService.getDistinctFilterValues(null, "subjects.keyword", null);
 
         assertThat(result).containsExactly("ai");
 
@@ -397,6 +397,152 @@ class PaperServiceFilterTest {
         co.elastic.clients.elasticsearch._types.aggregations.Aggregation termsAgg =
                 nativeQuery.getAggregations().get("distinct_values");
         assertThat(termsAgg.terms().field()).isEqualTo("subjects.keyword");
+    }
+
+    // -------------------------------------------------------------------------
+    // .keyword auto-resolution: a plain logical name (e.g. "creators") with a
+    // "keyword" multi-field in the mapping is auto-targeted to "creators.keyword"
+    // for the terms aggregation, so callers no longer need to know about ES
+    // multi-field internals.
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getDistinctFilterValues_plainNameWithKeywordSubField_autoResolvesToKeyword() {
+        Map<String, Object> creatorsMapping = Map.of(
+                "type", "text",
+                "fields", Map.of("keyword", Map.of("type", "keyword")));
+        Map<String, Object> properties = Map.of("creators", creatorsMapping);
+        Map<String, Object> mapping = Map.of("properties", properties);
+
+        when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
+        when(indexOperations.getMapping()).thenReturn(mapping);
+
+        co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate sterms =
+                co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate.of(s -> s
+                        .buckets(b -> b.array(List.of(
+                                co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket.of(t -> t.key(k -> k.stringValue("Jane Doe")).docCount(2))
+                        ))));
+        co.elastic.clients.elasticsearch._types.aggregations.Aggregate aggregate =
+                co.elastic.clients.elasticsearch._types.aggregations.Aggregate.of(a -> a.sterms(sterms));
+
+        org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregations aggregationsContainer =
+                new org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregations(
+                        Map.of("distinct_values", aggregate));
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        when(elasticsearchOperations.search(queryCaptor.capture(), eq(ElasticPaperDocument.class)))
+                .thenReturn(searchHits);
+        when(searchHits.getAggregations()).thenReturn(aggregationsContainer);
+
+        List<String> result = paperService.getDistinctFilterValues(null, "creators", null);
+
+        assertThat(result).containsExactly("Jane Doe");
+
+        org.springframework.data.elasticsearch.client.elc.NativeQuery nativeQuery =
+                (org.springframework.data.elasticsearch.client.elc.NativeQuery) queryCaptor.getValue();
+        co.elastic.clients.elasticsearch._types.aggregations.Aggregation termsAgg =
+                nativeQuery.getAggregations().get("distinct_values");
+        assertThat(termsAgg.terms().field()).isEqualTo("creators.keyword");
+    }
+
+    // -------------------------------------------------------------------------
+    // Query/filter scoping: getDistinctFilterValues builds its aggregation against
+    // the same scoped bool query (multi-match + filter clauses) as getPapersByQuery,
+    // rather than aggregating over the entire unfiltered index.
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getDistinctFilterValues_withQueryAndFilters_scopesAggregationToBoolQuery() {
+        Map<String, Object> languageMapping = Map.of("type", "keyword");
+        Map<String, Object> subjectsMapping = Map.of(
+                "type", "text",
+                "fields", Map.of("keyword", Map.of("type", "keyword")));
+        Map<String, Object> properties = Map.of("language", languageMapping, "subjects", subjectsMapping);
+        Map<String, Object> mapping = Map.of("properties", properties);
+
+        when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
+        when(indexOperations.getMapping()).thenReturn(mapping);
+
+        co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate sterms =
+                co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate.of(s -> s
+                        .buckets(b -> b.array(List.of())));
+        co.elastic.clients.elasticsearch._types.aggregations.Aggregate aggregate =
+                co.elastic.clients.elasticsearch._types.aggregations.Aggregate.of(a -> a.sterms(sterms));
+
+        org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregations aggregationsContainer =
+                new org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregations(
+                        Map.of("distinct_values", aggregate));
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        when(elasticsearchOperations.search(queryCaptor.capture(), eq(ElasticPaperDocument.class)))
+                .thenReturn(searchHits);
+        when(searchHits.getAggregations()).thenReturn(aggregationsContainer);
+
+        FilterRequest languageFilter = new FilterRequest("language", "en");
+        paperService.getDistinctFilterValues("deep learning", "subjects", List.of(languageFilter));
+
+        org.springframework.data.elasticsearch.client.elc.NativeQuery nativeQuery =
+                (org.springframework.data.elasticsearch.client.elc.NativeQuery) queryCaptor.getValue();
+        co.elastic.clients.elasticsearch._types.query_dsl.Query boolQuery = nativeQuery.getQuery();
+
+        assertThat(boolQuery.bool().must().get(0).multiMatch().query()).isEqualTo("deep learning");
+        assertThat(boolQuery.bool().filter()).hasSize(1);
+        assertThat(boolQuery.bool().filter().get(0).term().field()).isEqualTo("language");
+        assertThat(nativeQuery.getAggregations().get("distinct_values").terms().field()).isEqualTo("subjects.keyword");
+    }
+
+    // -------------------------------------------------------------------------
+    // Self-selection exclusion: when filters already contains an entry for the
+    // same field being queried for options (e.g. user already selected
+    // subjects=ai and is asking what other subjects are available), that
+    // filter's term clause must be excluded from the scoping bool query -
+    // otherwise the aggregation would collapse to only the already-selected
+    // value(s), making it impossible to discover/switch to other values.
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getDistinctFilterValues_filtersIncludeSameField_excludesSelfReferentialClause() {
+        Map<String, Object> languageMapping = Map.of("type", "keyword");
+        Map<String, Object> subjectsMapping = Map.of(
+                "type", "text",
+                "fields", Map.of("keyword", Map.of("type", "keyword")));
+        Map<String, Object> properties = Map.of("language", languageMapping, "subjects", subjectsMapping);
+        Map<String, Object> mapping = Map.of("properties", properties);
+
+        when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
+        when(indexOperations.getMapping()).thenReturn(mapping);
+
+        co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate sterms =
+                co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate.of(s -> s
+                        .buckets(b -> b.array(List.of())));
+        co.elastic.clients.elasticsearch._types.aggregations.Aggregate aggregate =
+                co.elastic.clients.elasticsearch._types.aggregations.Aggregate.of(a -> a.sterms(sterms));
+
+        org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregations aggregationsContainer =
+                new org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregations(
+                        Map.of("distinct_values", aggregate));
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        when(elasticsearchOperations.search(queryCaptor.capture(), eq(ElasticPaperDocument.class)))
+                .thenReturn(searchHits);
+        when(searchHits.getAggregations()).thenReturn(aggregationsContainer);
+
+        // User already has subjects=ai selected and is asking for other "subjects" options.
+        FilterRequest selfFilter = new FilterRequest("subjects", "ai");
+        FilterRequest languageFilter = new FilterRequest("language", "en");
+        paperService.getDistinctFilterValues(null, "subjects", List.of(selfFilter, languageFilter));
+
+        org.springframework.data.elasticsearch.client.elc.NativeQuery nativeQuery =
+                (org.springframework.data.elasticsearch.client.elc.NativeQuery) queryCaptor.getValue();
+        co.elastic.clients.elasticsearch._types.query_dsl.Query boolQuery = nativeQuery.getQuery();
+
+        // Only the "language" filter clause should remain; the self-referential
+        // "subjects" clause must be dropped before scoping the aggregation.
+        assertThat(boolQuery.bool().filter()).hasSize(1);
+        assertThat(boolQuery.bool().filter().get(0).term().field()).isEqualTo("language");
     }
 
     @Test
@@ -411,7 +557,7 @@ class PaperServiceFilterTest {
         when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
         when(indexOperations.getMapping()).thenReturn(mapping);
 
-        assertThatThrownBy(() -> paperService.getDistinctFilterValues("subjects.nonexistent"))
+        assertThatThrownBy(() -> paperService.getDistinctFilterValues(null, "subjects.nonexistent", null))
                 .isInstanceOf(InvalidFilterException.class)
                 .hasMessageContaining("subjects.nonexistent");
     }
@@ -429,7 +575,7 @@ class PaperServiceFilterTest {
         when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
         when(indexOperations.getMapping()).thenReturn(mapping);
 
-        assertThatThrownBy(() -> paperService.getDistinctFilterValues("nonexistent_field"))
+        assertThatThrownBy(() -> paperService.getDistinctFilterValues(null, "nonexistent_field", null))
                 .isInstanceOf(InvalidFilterException.class)
                 .hasMessageContaining("nonexistent_field");
     }
@@ -464,7 +610,7 @@ class PaperServiceFilterTest {
                 .thenReturn(searchHits);
         when(searchHits.getAggregations()).thenReturn(aggregationsContainer);
 
-        List<String> result = paperService.getDistinctFilterValues("language");
+        List<String> result = paperService.getDistinctFilterValues(null, "language", null);
 
         assertThat(result).containsExactlyInAnyOrder("en", "fr");
     }
@@ -486,7 +632,7 @@ class PaperServiceFilterTest {
                 .thenReturn(searchHits);
         when(searchHits.getAggregations()).thenReturn(null);
 
-        List<String> result = paperService.getDistinctFilterValues("language");
+        List<String> result = paperService.getDistinctFilterValues(null, "language", null);
 
         assertThat(result).isEmpty();
     }
