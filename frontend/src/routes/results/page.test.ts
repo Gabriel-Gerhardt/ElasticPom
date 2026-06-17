@@ -110,7 +110,7 @@ describe('results +page.svelte', () => {
 		expect(getByText('Paper With DOI')).toBeInTheDocument();
 		expect(getByText('Paper Without Link')).toBeInTheDocument();
 
-		const links = await findAllByRole('link', { name: 'View official page' });
+		const links = await findAllByRole('link', { name: 'View official paper page' });
 		expect(links).toHaveLength(1);
 		expect(links[0]).toHaveAttribute('href', 'https://doi.org/10.1234/a');
 		expect(links[0]).toHaveAttribute('target', '_blank');

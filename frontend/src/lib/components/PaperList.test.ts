@@ -41,7 +41,7 @@ describe('PaperList — paper link button integration (GAB-26)', () => {
 
 		const { getAllByRole } = render(PaperList, { props: { papers } });
 
-		const links = getAllByRole('link', { name: 'View official page' });
+		const links = getAllByRole('link', { name: 'View official paper page' });
 		// Only the 3 papers with a resolvable link should get a button — no leakage
 		// between cards (e.g. card "d" or "e" picking up a neighboring link).
 		expect(links).toHaveLength(3);
@@ -56,7 +56,7 @@ describe('PaperList — paper link button integration (GAB-26)', () => {
 		const papers = [makePaper({ id: 'a', identifier: 'https://example.com/paper/a' })];
 		const { getByRole } = render(PaperList, { props: { papers } });
 
-		const link = getByRole('link', { name: 'View official page' });
+		const link = getByRole('link', { name: 'View official paper page' });
 		expect(link).toHaveAttribute('target', '_blank');
 		expect(link).toHaveAttribute('rel', 'noopener noreferrer');
 	});
@@ -69,12 +69,12 @@ describe('PaperList — paper link button integration (GAB-26)', () => {
 			makePaper({ id: 'd', identifier: 'garbage' })
 		];
 		const { queryByRole } = render(PaperList, { props: { papers } });
-		expect(queryByRole('link', { name: 'View official page' })).not.toBeInTheDocument();
+		expect(queryByRole('link', { name: 'View official paper page' })).not.toBeInTheDocument();
 	});
 
 	it('renders the "no papers found" message and no link buttons for an empty list', () => {
 		const { getByText, queryByRole } = render(PaperList, { props: { papers: [] } });
 		expect(getByText('No papers found.')).toBeInTheDocument();
-		expect(queryByRole('link', { name: 'View official page' })).not.toBeInTheDocument();
+		expect(queryByRole('link', { name: 'View official paper page' })).not.toBeInTheDocument();
 	});
 });
