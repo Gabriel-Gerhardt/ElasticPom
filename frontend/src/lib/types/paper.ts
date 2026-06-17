@@ -16,7 +16,7 @@ export interface PaperDto {
 	date: string | null;
 	type: string;
 	format: string;
-	identifier: string;
+	identifier: string | null | undefined;
 	source: string;
 	language: string;
 	relations: string[];
