@@ -1,11 +1,14 @@
 <script lang="ts">
 	import type { PaperDto } from '$lib/types/paper';
+	import { getPaperLink } from '$lib/utils/paperLink';
+	import PaperLinkButton from './PaperLinkButton.svelte';
 
 	export let paper: PaperDto;
 
 	$: displayDate = paper.date ?? paper.datestamp ?? null;
 	$: creatorsText = paper.creators?.join(', ') || '';
 	$: topSubjects = paper.subjects?.slice(0, 3) ?? [];
+	$: paperLink = getPaperLink(paper.identifier);
 </script>
 
 <article class="card hover:border-neutral-300 transition-colors duration-200">
@@ -39,6 +42,12 @@
 					{subject}
 				</span>
 			{/each}
+		</div>
+	{/if}
+
+	{#if paperLink}
+		<div class="mt-3">
+			<PaperLinkButton link={paperLink} />
 		</div>
 	{/if}
 </article>

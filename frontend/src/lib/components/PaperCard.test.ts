@@ -109,4 +109,32 @@ describe('PaperCard', () => {
 		const { container } = render(PaperCard, { props: { paper: makePaper() } });
 		expect(container.querySelector('article')).toBeInTheDocument();
 	});
+
+	it('renders the paper link button when identifier is a valid DOI', () => {
+		const { getByRole } = render(PaperCard, { props: { paper: makePaper() } });
+		const link = getByRole('link', { name: 'View official page' });
+		expect(link).toBeInTheDocument();
+		expect(link).toHaveAttribute('href', 'https://doi.org/10.1234/nn');
+	});
+
+	it('renders the paper link button when identifier is a full URL', () => {
+		const paper = makePaper({ identifier: 'https://example.com/paper/1' });
+		const { getByRole } = render(PaperCard, { props: { paper } });
+		expect(getByRole('link', { name: 'View official page' })).toHaveAttribute(
+			'href',
+			'https://example.com/paper/1'
+		);
+	});
+
+	it('does not render the paper link button when identifier is empty', () => {
+		const paper = makePaper({ identifier: '' });
+		const { queryByRole } = render(PaperCard, { props: { paper } });
+		expect(queryByRole('link', { name: 'View official page' })).not.toBeInTheDocument();
+	});
+
+	it('does not render the paper link button when identifier is not a recognizable link', () => {
+		const paper = makePaper({ identifier: 'not-a-link-or-doi' });
+		const { queryByRole } = render(PaperCard, { props: { paper } });
+		expect(queryByRole('link', { name: 'View official page' })).not.toBeInTheDocument();
+	});
 });
