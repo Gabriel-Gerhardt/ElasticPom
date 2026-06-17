@@ -52,20 +52,21 @@ public class PaperService {
     }
 
     public List<Paper> getPapersByQuery(String query, Integer pageSize, Integer page, List<FilterRequest> filters) {
-        Pageable pageable = PageRequest.of(page, pageSize);
-
-        List<String> paperIds;
-        if (filters == null || filters.isEmpty()) {
-            paperIds = elasticRepository.findByQuery(query, pageable).stream()
-                    .map(ElasticPaperDocument::getId).toList();
-        } else {
-            paperIds = findByQueryWithFilters(query, filters, pageable);
-        }
+        List<String> paperIds = findIdsByQuery(query, pageSize, page, filters);
 
         if (paperIds.isEmpty()) {
             throw new PaperNotInElasticException("There is no paper in the elastic for the page " + page + " and this query " + query);
         }
         return getPapersByIds(paperIds);
+    }
+
+    private List<String> findIdsByQuery(String query, Integer pageSize, Integer page, List<FilterRequest> filters) {
+        Pageable pageable = PageRequest.of(page, pageSize);
+        if (filters == null || filters.isEmpty()) {
+            return elasticRepository.findByQuery(query, pageable).stream()
+                    .map(ElasticPaperDocument::getId).toList();
+        }
+        return findByQueryWithFilters(query, filters, pageable);
     }
 
     private List<String> findByQueryWithFilters(String query, List<FilterRequest> filters, Pageable pageable) {
@@ -271,6 +272,15 @@ public class PaperService {
             throw new PaperNotInElasticException("Query cannot be null");
         }
 
+        List<String> paperIds = findIdsBySemanticSearch(queryVector, pageSize, page);
+
+        if (paperIds.isEmpty()) {
+            throw new PaperNotInElasticException("No papers found for the semantic search query: " + query);
+        }
+        return getPapersByIds(paperIds);
+    }
+
+    private List<String> findIdsBySemanticSearch(float[] queryVector, Integer pageSize, Integer page) {
         List<Float> vectorList = new ArrayList<>(queryVector.length);
         for (float v : queryVector) {
             vectorList.add(v);
@@ -288,16 +298,41 @@ public class PaperService {
                 .withSourceFilter(new FetchSourceFilter(true, new String[]{"id"}, null))
                 .build();
 
-        List<String> paperIds = elasticsearchOperations.search(nativeQuery, ElasticPaperDocument.class)
+        return elasticsearchOperations.search(nativeQuery, ElasticPaperDocument.class)
                 .stream()
                 .map(SearchHit::getContent)
                 .map(ElasticPaperDocument::getId)
                 .toList();
+    }
 
-        if (paperIds.isEmpty()) {
-            throw new PaperNotInElasticException("No papers found for the semantic search query: " + query);
+    /**
+     * Hybrid search: fetches up to {@code pageSize} ids from syntactic (BM25) and semantic
+     * (kNN) search independently, then fuses the two rankings with Reciprocal Rank Fusion
+     * (RRF), which compares ranks rather than raw scores since BM25 and kNN scores are not
+     * on the same scale. Only a single page (page 0) of each leg is fetched - this does not
+     * support multi-page re-ranking.
+     * <p>
+     * If syntactic search finds nothing, the semantic results are returned unchanged (and
+     * vice versa). If both are empty, behaves like the existing single-mode searches and
+     * throws {@link PaperNotInElasticException}.
+     */
+    public List<Paper> getPapersByHybridSearch(String query, float[] queryVector, Integer pageSize, Integer page) {
+        List<String> syntacticIds = findIdsByQuery(query, pageSize, page, null);
+        List<String> semanticIds = findIdsBySemanticSearch(queryVector, pageSize, page);
+
+        List<String> mergedIds;
+        if (syntacticIds.isEmpty()) {
+            mergedIds = semanticIds;
+        } else if (semanticIds.isEmpty()) {
+            mergedIds = syntacticIds;
+        } else {
+            mergedIds = RrfMerger.merge(syntacticIds, semanticIds, pageSize);
         }
-        return getPapersByIds(paperIds);
+
+        if (mergedIds.isEmpty()) {
+            throw new PaperNotInElasticException("There is no paper in the elastic for the page " + page + " and this query " + query);
+        }
+        return getPapersByIds(mergedIds);
     }
 
     public List<Paper> getPapersByIds(List<String> paperIds) {
