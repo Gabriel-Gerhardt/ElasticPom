@@ -17,9 +17,15 @@ const filterDefs: FilterDto[] = [
 
 function mockApi(options: Record<string, string[]> = {}) {
 	vi.mocked(papersApi.getFilters).mockResolvedValue(filterDefs);
-	vi.mocked(papersApi.getFilterOptions).mockImplementation(async (filterName: string) => {
+	vi.mocked(papersApi.getFilterOptions).mockImplementation(async (_query: string, filterName: string) => {
 		return options[filterName] ?? [];
 	});
+}
+
+// loadFilters() is scheduled through a 300ms debounce timer, including the
+// initial load (the reactive statement fires once immediately on init).
+async function waitForDebounce() {
+	await new Promise((resolve) => setTimeout(resolve, 310));
 }
 
 beforeEach(() => {
@@ -35,10 +41,11 @@ describe('FilterSidebar', () => {
 		expect(getByText('Filters')).toBeInTheDocument();
 	});
 
-	it('fetches filter definitions via getFilters on mount', async () => {
+	it('fetches filter definitions via getFilters after the debounce', async () => {
 		mockApi();
 		render(FilterSidebar, { props: { activeFilters: [] } });
-		await waitFor(() => expect(papersApi.getFilters).toHaveBeenCalledOnce());
+		await waitForDebounce();
+		await waitFor(() => expect(papersApi.getFilters).toHaveBeenCalled());
 	});
 
 	it('renders option-type filter sections with values fetched via getFilterOptions', async () => {
@@ -47,6 +54,7 @@ describe('FilterSidebar', () => {
 			props: { activeFilters: [] }
 		});
 
+		await waitForDebounce();
 		await waitFor(() => expect(getByText('Language')).toBeInTheDocument());
 		expect(getByText('en')).toBeInTheDocument();
 		expect(getByText('fr')).toBeInTheDocument();
@@ -54,27 +62,61 @@ describe('FilterSidebar', () => {
 		expect(getByText('MIT Press')).toBeInTheDocument();
 		expect(getByText('Springer')).toBeInTheDocument();
 
-		expect(papersApi.getFilterOptions).toHaveBeenCalledWith('language');
-		expect(papersApi.getFilterOptions).toHaveBeenCalledWith('publisher');
+		expect(papersApi.getFilterOptions).toHaveBeenCalledWith('', 'language', []);
+		expect(papersApi.getFilterOptions).toHaveBeenCalledWith('', 'publisher', []);
+	});
+
+	it('passes the query prop and activeFilters through to getFilterOptions', async () => {
+		mockApi({ language: ['en'] });
+		const activeFilters: FilterRequest[] = [{ filter_name: 'publisher', filter_option: 'MIT Press' }];
+		render(FilterSidebar, {
+			props: { activeFilters, query: 'deep learning' }
+		});
+
+		await waitForDebounce();
+		await waitFor(() =>
+			expect(papersApi.getFilterOptions).toHaveBeenCalledWith('deep learning', 'language', activeFilters)
+		);
+	});
+
+	it('re-fetches filter options when the query prop changes', async () => {
+		mockApi({ language: ['en'] });
+		const { component } = render(FilterSidebar, {
+			props: { activeFilters: [], query: 'first query' }
+		});
+
+		await waitForDebounce();
+		await waitFor(() =>
+			expect(papersApi.getFilterOptions).toHaveBeenCalledWith('first query', 'language', [])
+		);
+
+		component.$set({ query: 'second query' });
+
+		await waitForDebounce();
+		await waitFor(() =>
+			expect(papersApi.getFilterOptions).toHaveBeenCalledWith('second query', 'language', [])
+		);
 	});
 
 	it('does not call getFilterOptions for range-type filters', async () => {
 		mockApi({ language: ['en'] });
 		render(FilterSidebar, { props: { activeFilters: [] } });
 
+		await waitForDebounce();
 		await waitFor(() => expect(papersApi.getFilters).toHaveBeenCalledOnce());
-		expect(papersApi.getFilterOptions).not.toHaveBeenCalledWith('datestamp');
+		expect(papersApi.getFilterOptions).not.toHaveBeenCalledWith(expect.anything(), 'datestamp', expect.anything());
 	});
 
-	it('renders from/to inputs for range-type filters', async () => {
+	it('renders date inputs for range-type filters', async () => {
 		mockApi({ language: ['en'] });
 		const { getByText, getByPlaceholderText } = render(FilterSidebar, {
 			props: { activeFilters: [] }
 		});
 
+		await waitForDebounce();
 		await waitFor(() => expect(getByText('Datestamp')).toBeInTheDocument());
-		expect(getByPlaceholderText('From')).toBeInTheDocument();
-		expect(getByPlaceholderText('To')).toBeInTheDocument();
+		expect(getByPlaceholderText('From')).toHaveAttribute('type', 'date');
+		expect(getByPlaceholderText('To')).toHaveAttribute('type', 'date');
 	});
 
 	it('emits "change" event with new filter added when an option button is clicked', async () => {
@@ -85,6 +127,7 @@ describe('FilterSidebar', () => {
 		const changeHandler = vi.fn();
 		component.$on('change', changeHandler);
 
+		await waitForDebounce();
 		await waitFor(() => expect(getByText('en')).toBeInTheDocument());
 		await fireEvent.click(getByText('en'));
 
@@ -102,6 +145,7 @@ describe('FilterSidebar', () => {
 		const changeHandler = vi.fn();
 		component.$on('change', changeHandler);
 
+		await waitForDebounce();
 		await waitFor(() => expect(getByText('en')).toBeInTheDocument());
 		await fireEvent.click(getByText('en'));
 
@@ -118,6 +162,7 @@ describe('FilterSidebar', () => {
 		const changeHandler = vi.fn();
 		component.$on('change', changeHandler);
 
+		await waitForDebounce();
 		await waitFor(() => expect(getByPlaceholderText('From')).toBeInTheDocument());
 
 		await fireEvent.change(getByPlaceholderText('From'), { target: { value: '2020-01-01' } });
@@ -174,7 +219,8 @@ describe('FilterSidebar', () => {
 		const { queryByText } = render(FilterSidebar, {
 			props: { activeFilters: [] }
 		});
-		await waitFor(() => expect(papersApi.getFilters).toHaveBeenCalledOnce());
+		await waitForDebounce();
+		await waitFor(() => expect(papersApi.getFilters).toHaveBeenCalled());
 		expect(queryByText('Language')).not.toBeInTheDocument();
 	});
 
@@ -190,6 +236,7 @@ describe('FilterSidebar', () => {
 			props: { activeFilters: [] }
 		});
 
+		await waitForDebounce();
 		await waitFor(() => expect(papersApi.getFilters).toHaveBeenCalledOnce());
 		expect(getByText('Filters')).toBeInTheDocument();
 		expect(papersApi.getFilterOptions).not.toHaveBeenCalled();
@@ -201,28 +248,25 @@ describe('FilterSidebar', () => {
 	// specific filter (partial failure). The component awaits each
 	// getFilterOptions call sequentially inside a for-loop with no per-filter
 	// try/catch, so a single rejection short-circuits loadFilters() and the
-	// rejection propagates out of onMount as an unhandled promise rejection
-	// (loadFilters() is invoked without a .catch()). The filter list itself
-	// (filterDefs) is static and rendered by the #each block regardless of
-	// how far the loop got, so every filter section still renders structurally;
-	// only the option VALUES for filters at-or-after the failing one in
-	// iteration order never get populated. "language" (before "publisher" in
-	// filterDefs) keeps its fetched values because Svelte's compiler tracks
-	// the `optionValues[key] = ...` assignment as its own reactive update.
+	// rejection propagates out as an unhandled promise rejection (loadFilters()
+	// is invoked from the debounced reactive statement without a .catch()).
+	// The filter list itself (filterDefs) is static and rendered by the #each
+	// block regardless of how far the loop got, so every filter section still
+	// renders structurally; only the option VALUES for filters at-or-after the
+	// failing one in iteration order never get populated. "language" (before
+	// "publisher" in filterDefs) keeps its fetched values because Svelte's
+	// compiler tracks the `optionValues[key] = ...` assignment as its own
+	// reactive update.
 	// -------------------------------------------------------------------------
 
 	it('keeps values fetched before a getFilterOptions rejection, while later filters stay unpopulated', async () => {
-		// loadFilters() is invoked fire-and-forget inside onMount with no
-		// .catch(), so the rejection below is a genuine unhandled rejection at
-		// the Node process level. Intercept it here purely to keep the test
-		// run clean while still exercising and documenting the real behavior.
 		const onUnhandledRejection = (reason: unknown) => {
 			expect((reason as Error).message).toBe('network error');
 		};
 		process.on('unhandledRejection', onUnhandledRejection);
 
 		vi.mocked(papersApi.getFilters).mockResolvedValue(filterDefs);
-		vi.mocked(papersApi.getFilterOptions).mockImplementation(async (filterName: string) => {
+		vi.mocked(papersApi.getFilterOptions).mockImplementation(async (_query: string, filterName: string) => {
 			if (filterName === 'language') {
 				return ['en', 'fr'];
 			}
@@ -236,7 +280,8 @@ describe('FilterSidebar', () => {
 			props: { activeFilters: [] }
 		});
 
-		await waitFor(() => expect(papersApi.getFilterOptions).toHaveBeenCalledWith('publisher'));
+		await waitForDebounce();
+		await waitFor(() => expect(papersApi.getFilterOptions).toHaveBeenCalledWith('', 'publisher', []));
 		// Drain the microtask queue so the rejection surfaces before we assert.
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		process.removeListener('unhandledRejection', onUnhandledRejection);
@@ -256,8 +301,8 @@ describe('FilterSidebar', () => {
 		expect(getByPlaceholderText('To')).toBeInTheDocument();
 		expect(queryByText('Datestamp')).toBeInTheDocument();
 
-		expect(papersApi.getFilterOptions).toHaveBeenCalledWith('language');
-		expect(papersApi.getFilterOptions).toHaveBeenCalledWith('publisher');
+		expect(papersApi.getFilterOptions).toHaveBeenCalledWith('', 'language', []);
+		expect(papersApi.getFilterOptions).toHaveBeenCalledWith('', 'publisher', []);
 	});
 
 	it('does not crash the page when getFilters itself rejects', async () => {
@@ -273,6 +318,7 @@ describe('FilterSidebar', () => {
 			props: { activeFilters: [] }
 		});
 
+		await waitForDebounce();
 		await waitFor(() => expect(papersApi.getFilters).toHaveBeenCalledOnce());
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		process.removeListener('unhandledRejection', onUnhandledRejection);
