@@ -1,14 +1,13 @@
 export interface FilterRequest {
 	filter_name: string;
 	filter_option: string;
+	filter_option_end?: string;
 }
 
-export type FilterType = 'option' | 'range';
-
-export interface FilterDefinition {
+export interface FilterDto {
 	filtername: string;
 	order: number;
-	type: FilterType;
+	type: 'option' | 'range';
 }
 
 export interface SearchRequest {
