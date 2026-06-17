@@ -35,19 +35,16 @@
 		<p class="text-sm text-neutral-100 line-clamp-3 mb-3">{paper.description}</p>
 	{/if}
 
-	{#if topSubjects.length > 0}
-		<div class="flex flex-wrap gap-1.5">
+	{#if topSubjects.length > 0 || paperLink}
+		<div class="flex flex-wrap gap-1.5 items-center mt-3">
 			{#each topSubjects as subject}
 				<span class="text-xs bg-brand-700 text-neutral-300 rounded px-2 py-0.5 border border-neutral-600">
 					{subject}
 				</span>
 			{/each}
-		</div>
-	{/if}
-
-	{#if paperLink}
-		<div class="mt-3">
-			<PaperLinkButton link={paperLink} />
+			{#if paperLink}
+				<PaperLinkButton link={paperLink} />
+			{/if}
 		</div>
 	{/if}
 </article>
