@@ -47,7 +47,7 @@ class FilterEndToEndAcceptanceTest {
     // Mirrors backend/ingestor/mongo/filter_data_parser.py FILTERS exactly.
     private static final List<FilterDocument> SEEDED_PRODUCTION_FILTERS = List.of(
             new FilterDocument("subjects.keyword", 1, "option"),
-            new FilterDocument("contributors.keyword", 2, "option"),
+            new FilterDocument("creators.keyword", 2, "option"),
             new FilterDocument("date", 3, "range")
     );
 
@@ -67,7 +67,7 @@ class FilterEndToEndAcceptanceTest {
                 .andExpect(jsonPath("$[0].filtername").value("subjects.keyword"))
                 .andExpect(jsonPath("$[0].order").value(1))
                 .andExpect(jsonPath("$[0].type").value("option"))
-                .andExpect(jsonPath("$[1].filtername").value("contributors.keyword"))
+                .andExpect(jsonPath("$[1].filtername").value("creators.keyword"))
                 .andExpect(jsonPath("$[1].order").value(2))
                 .andExpect(jsonPath("$[1].type").value("option"))
                 .andExpect(jsonPath("$[2].filtername").value("date"))
