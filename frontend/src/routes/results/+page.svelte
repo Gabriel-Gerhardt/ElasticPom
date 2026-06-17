@@ -99,7 +99,6 @@
 		<!-- Sidebar -->
 		<div class="shrink-0 w-52 sticky top-4">
 			<FilterSidebar
-				{papers}
 				{activeFilters}
 				on:change={handleFiltersChange}
 			/>
