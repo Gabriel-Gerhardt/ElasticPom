@@ -1,9 +1,8 @@
 package com.elasticpom.external.rest;
 
 import com.elasticpom.adapters.dto.PaperDto;
+import com.elasticpom.adapters.dto.request.FilterOptionsRequest;
 import com.elasticpom.adapters.dto.request.PaperQueryRequest;
-import com.elasticpom.core.model.FilterDefinition;
-import com.elasticpom.core.service.FilterService;
 import com.elasticpom.adapters.dto.request.SemanticSearchRequest;
 import com.elasticpom.core.service.PaperService;
 import com.elasticpom.exception.BadRequestException;
@@ -19,12 +18,10 @@ import java.util.List;
 public class PaperController {
     private final PaperService service;
     private final PaperMapper paperMapper;
-    private final FilterService filterService;
 
-    public PaperController(PaperService service, PaperMapper paperMapper, FilterService filterService) {
+    public PaperController(PaperService service, PaperMapper paperMapper) {
         this.service = service;
         this.paperMapper = paperMapper;
-        this.filterService = filterService;
     }
 
     @GetMapping("/most-relevant/")
@@ -44,9 +41,10 @@ public class PaperController {
         return ResponseEntity.ok(paperList);
     }
 
-    @GetMapping("/filters")
-    public ResponseEntity<List<FilterDefinition>> getFilters() {
-        return ResponseEntity.ok(filterService.getAvailableFilters());
+    @PostMapping("/filter-options")
+    public ResponseEntity<List<String>> getFilterOptions(@RequestBody @Validated FilterOptionsRequest request) {
+        List<String> values = service.getDistinctFilterValues(request.query(), request.filterName(), request.filters());
+        return ResponseEntity.ok(values);
     }
 
     @PostMapping("/semantic-search")

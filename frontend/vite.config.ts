@@ -12,6 +12,9 @@ export default defineConfig({
 			}
 		}
 	},
+	resolve: {
+		conditions: ['browser']
+	},
 	test: {
 		include: ['src/**/*.{test,spec}.{js,ts}'],
 		globals: true,

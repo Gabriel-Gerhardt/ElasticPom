@@ -1,5 +1,5 @@
 import type { PaperDto } from '$lib/types/paper';
-import type { SearchRequest, FilterRequest } from '$lib/types/api';
+import type { SearchRequest, FilterRequest, FilterDto } from '$lib/types/api';
 
 const BASE = '/api/papers';
 
@@ -25,6 +25,30 @@ export async function searchByQuery(
 	});
 	if (!res.ok) {
 		throw { message: `Search failed: ${res.statusText}`, status: res.status };
+	}
+	return res.json();
+}
+
+export async function getFilters(): Promise<FilterDto[]> {
+	const res = await fetch('/api/filters');
+	if (!res.ok) {
+		throw { message: `Failed to fetch filters: ${res.statusText}`, status: res.status };
+	}
+	return res.json();
+}
+
+export async function getFilterOptions(
+	query: string,
+	filterName: string,
+	filters: FilterRequest[] = []
+): Promise<string[]> {
+	const res = await fetch(`${BASE}/filter-options`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ query, filter_name: filterName, filters })
+	});
+	if (!res.ok) {
+		throw { message: `Failed to fetch filter options: ${res.statusText}`, status: res.status };
 	}
 	return res.json();
 }

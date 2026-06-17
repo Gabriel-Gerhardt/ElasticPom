@@ -17,7 +17,6 @@ class MongoDataParser:
             "subjects": paper.get("subjects", []),
             "description": paper.get("description"),
             "publisher": paper.get("publisher"),
-            "contributors": paper.get("contributors", []),
             "date": paper.get("date"),
             "type": paper.get("type"),
             "identifier": paper.get("identifier"),

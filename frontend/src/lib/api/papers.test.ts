@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getMostRelevant, searchByQuery } from './papers';
+import { getMostRelevant, searchByQuery, getFilterOptions } from './papers';
 
 const mockPapers = [
 	{
@@ -211,5 +211,88 @@ describe('searchByQuery', () => {
 		const body = JSON.parse(options?.body as string);
 		expect(body.pageSize).toBe(10);
 		expect(body.page).toBe(0);
+	});
+});
+
+describe('getFilterOptions', () => {
+	beforeEach(() => {
+		vi.stubGlobal('fetch', vi.fn());
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('calls the correct endpoint with POST method', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: true,
+			json: async () => ['en', 'fr']
+		} as Response);
+
+		await getFilterOptions('machine learning', 'language', []);
+
+		expect(mockFetch).toHaveBeenCalledOnce();
+		const [url, options] = mockFetch.mock.calls[0];
+		expect(url).toBe('/api/papers/filter-options');
+		expect(options?.method).toBe('POST');
+	});
+
+	it('sends query, filter_name, and filters in the request body', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: true,
+			json: async () => ['en']
+		} as Response);
+
+		const filters = [{ filter_name: 'subjects', filter_option: 'ai' }];
+		await getFilterOptions('neural networks', 'language', filters);
+
+		const [, options] = mockFetch.mock.calls[0];
+		const body = JSON.parse(options?.body as string);
+		expect(body).toEqual({
+			query: 'neural networks',
+			filter_name: 'language',
+			filters: [{ filter_name: 'subjects', filter_option: 'ai' }]
+		});
+	});
+
+	it('defaults filters to an empty array', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: true,
+			json: async () => []
+		} as Response);
+
+		await getFilterOptions('', 'language');
+
+		const [, options] = mockFetch.mock.calls[0];
+		const body = JSON.parse(options?.body as string);
+		expect(body.filters).toEqual([]);
+	});
+
+	it('returns parsed JSON on success', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: true,
+			json: async () => ['en', 'fr']
+		} as Response);
+
+		const result = await getFilterOptions('query', 'language', []);
+		expect(result).toEqual(['en', 'fr']);
+	});
+
+	it('throws an error object with message and status on non-ok response', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: false,
+			status: 404,
+			statusText: 'Not Found'
+		} as Response);
+
+		await expect(getFilterOptions('query', 'bad_field', [])).rejects.toMatchObject({
+			message: 'Failed to fetch filter options: Not Found',
+			status: 404
+		});
 	});
 });
