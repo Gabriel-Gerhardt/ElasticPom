@@ -2,6 +2,7 @@ package com.elasticpom.external.rest;
 
 import com.elasticpom.adapters.dto.PaperDto;
 import com.elasticpom.adapters.dto.request.FilterOptionsRequest;
+import com.elasticpom.adapters.dto.request.HybridSearchRequest;
 import com.elasticpom.adapters.dto.request.PaperQueryRequest;
 import com.elasticpom.adapters.dto.request.SemanticSearchRequest;
 import com.elasticpom.core.service.PaperService;
@@ -51,6 +52,15 @@ public class PaperController {
     public ResponseEntity<List<PaperDto>> semanticSearch(@RequestBody @Validated SemanticSearchRequest request) {
         validateElasticPageSize(request.pageSize(), request.page());
         List<PaperDto> papers = service.getPapersBySemanticSearch(
+                request.query(), request.queryVector(), request.pageSize(), request.page()
+        ).stream().map(paperMapper::toDto).toList();
+        return ResponseEntity.ok(papers);
+    }
+
+    @PostMapping("/hybrid-search")
+    public ResponseEntity<List<PaperDto>> hybridSearch(@RequestBody @Validated HybridSearchRequest request) {
+        validateElasticPageSize(request.pageSize(), request.page());
+        List<PaperDto> papers = service.getPapersByHybridSearch(
                 request.query(), request.queryVector(), request.pageSize(), request.page()
         ).stream().map(paperMapper::toDto).toList();
         return ResponseEntity.ok(papers);
