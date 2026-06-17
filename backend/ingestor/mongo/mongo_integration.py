@@ -30,5 +30,23 @@ class MongoIntegration:
     def ensure_indexes(self):
         self.collection.create_index(self.unique_key, unique=True)
 
+    def save_filters(self, filters: list[dict]):
+        ops = [
+            UpdateOne(
+                {"_id": f["filtername"]},
+                {"$set": {**f, "_id": f["filtername"]}},
+                upsert=True
+            )
+            for f in filters
+            if f.get("filtername") is not None
+        ]
+        if not ops:
+            return None
+        try:
+            return self.db["filters"].bulk_write(ops, ordered=False)
+        except BulkWriteError as e:
+            print(f"Bulk write parcial: {e.details}")
+            return e.details
+
     def close(self):
         self.client.close()

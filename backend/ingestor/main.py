@@ -3,6 +3,7 @@ from elastic.elastic_integration import ElasticIntegration
 from embedding.embedding_service import EmbeddingService
 import time
 from ingestor import Ingestor
+from mongo.filter_data_parser import FILTERS
 from mongo.mongo_data_parser import MongoDataParser
 from mongo.mongo_integration import MongoIntegration
 from utils.paper_parser import PaperParser
@@ -99,6 +100,8 @@ def main():
     elastic_parser = ElasticDataParser(index, time_converter, paper_parser, embedding_service)
     elastic_integration = ElasticIntegration(elasticsearch_host="http://localhost:9200")
     elastic_integration.put_mapping(index, mapping)
+
+    mongo_integration.save_filters(FILTERS)
 
     ingestor = Ingestor("https://oaipmh.arxiv.org/oai","oai_dc","cs:cs:IR")
     total_start = time.time()
