@@ -37,8 +37,16 @@ export async function getFilters(): Promise<FilterDto[]> {
 	return res.json();
 }
 
-export async function getFilterOptions(filterName: string): Promise<string[]> {
-	const res = await fetch(`${BASE}/filter-options?filter_name=${encodeURIComponent(filterName)}`);
+export async function getFilterOptions(
+	query: string,
+	filterName: string,
+	filters: FilterRequest[] = []
+): Promise<string[]> {
+	const res = await fetch(`${BASE}/filter-options`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ query, filter_name: filterName, filters })
+	});
 	if (!res.ok) {
 		throw { message: `Failed to fetch filter options: ${res.statusText}`, status: res.status };
 	}
