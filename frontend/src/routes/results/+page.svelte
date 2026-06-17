@@ -95,15 +95,17 @@
 		<ErrorBanner message={error} />
 	{/if}
 
-	<div class="flex gap-6 items-start">
-		<!-- Sidebar -->
-		<div class="shrink-0 w-52 sticky top-4">
-			<FilterSidebar
-				{query}
-				{activeFilters}
-				on:change={handleFiltersChange}
-			/>
-		</div>
+	<div class="flex {query ? 'gap-6' : ''} items-start">
+		<!-- Sidebar (search mode only — no filters to apply when browsing) -->
+		{#if query}
+			<div class="shrink-0 w-52 sticky top-4">
+				<FilterSidebar
+					{query}
+					{activeFilters}
+					on:change={handleFiltersChange}
+				/>
+			</div>
+		{/if}
 
 		<!-- Main content -->
 		<div class="flex-1 min-w-0">
