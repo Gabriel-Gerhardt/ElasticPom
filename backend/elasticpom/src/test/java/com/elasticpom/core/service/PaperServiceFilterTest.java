@@ -1,5 +1,6 @@
 package com.elasticpom.core.service;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import com.elasticpom.adapters.PaperMapper;
 import com.elasticpom.adapters.dto.request.FilterRequest;
 import com.elasticpom.exception.BadRequestException;
@@ -260,5 +261,233 @@ class PaperServiceFilterTest {
                 paperService.getPapersByQuery("query", 10, 0, List.of(filter)))
                 .isInstanceOf(InvalidFilterException.class)
                 .hasMessageContaining("unavailable");
+    }
+
+    // -------------------------------------------------------------------------
+    // Bug 1: Range filter with explicit from/to values produces correct gte/lte
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getPapersByQuery_rangeFilterWithEndValue_setsDistinctGteAndLte() {
+        Map<String, Object> properties = Map.of("datestamp", Map.of("type", "date"));
+        Map<String, Object> mapping = Map.of("properties", properties);
+
+        when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
+        when(indexOperations.getMapping()).thenReturn(mapping);
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        when(elasticsearchOperations.search(queryCaptor.capture(), eq(ElasticPaperDocument.class)))
+                .thenReturn(searchHits);
+        when(searchHits.stream()).thenReturn(java.util.stream.Stream.of());
+
+        FilterRequest rangeFilter = new FilterRequest("datestamp", "2020-01-01", "2023-12-31");
+
+        assertThatThrownBy(() ->
+                paperService.getPapersByQuery("query", 10, 0, List.of(rangeFilter)))
+                .isInstanceOf(com.elasticpom.exception.PaperNotInElasticException.class);
+
+        org.springframework.data.elasticsearch.client.elc.NativeQuery nativeQuery =
+                (org.springframework.data.elasticsearch.client.elc.NativeQuery) queryCaptor.getValue();
+        co.elastic.clients.elasticsearch._types.query_dsl.Query boolQuery = nativeQuery.getQuery();
+        RangeQuery rangeQuery = boolQuery.bool().filter().get(0).range();
+
+        assertThat(rangeQuery.untyped().gte().toString()).contains("2020-01-01");
+        assertThat(rangeQuery.untyped().lte().toString()).contains("2023-12-31");
+        assertThat(rangeQuery.untyped().gte()).isNotEqualTo(rangeQuery.untyped().lte());
+    }
+
+    // -------------------------------------------------------------------------
+    // Bug 1: Range filter without an end value remains backward compatible
+    // (gte == lte == filterOption, single-value match)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getPapersByQuery_rangeFilterWithoutEndValue_setsEqualGteAndLte() {
+        Map<String, Object> properties = Map.of("datestamp", Map.of("type", "date"));
+        Map<String, Object> mapping = Map.of("properties", properties);
+
+        when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
+        when(indexOperations.getMapping()).thenReturn(mapping);
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        when(elasticsearchOperations.search(queryCaptor.capture(), eq(ElasticPaperDocument.class)))
+                .thenReturn(searchHits);
+        when(searchHits.stream()).thenReturn(java.util.stream.Stream.of());
+
+        FilterRequest rangeFilter = new FilterRequest("datestamp", "2023-06-15");
+
+        assertThatThrownBy(() ->
+                paperService.getPapersByQuery("query", 10, 0, List.of(rangeFilter)))
+                .isInstanceOf(com.elasticpom.exception.PaperNotInElasticException.class);
+
+        org.springframework.data.elasticsearch.client.elc.NativeQuery nativeQuery =
+                (org.springframework.data.elasticsearch.client.elc.NativeQuery) queryCaptor.getValue();
+        co.elastic.clients.elasticsearch._types.query_dsl.Query boolQuery = nativeQuery.getQuery();
+        RangeQuery rangeQuery = boolQuery.bool().filter().get(0).range();
+
+        assertThat(rangeQuery.untyped().gte().toString()).contains("2023-06-15");
+        assertThat(rangeQuery.untyped().lte().toString()).contains("2023-06-15");
+    }
+
+    // -------------------------------------------------------------------------
+    // Bug 1: Malformed end value for a range filter → BadRequestException
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getPapersByQuery_malformedRangeEndValue_throwsBadRequestException() {
+        Map<String, Object> properties = Map.of("year", Map.of("type", "integer"));
+        Map<String, Object> mapping = Map.of("properties", properties);
+
+        when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
+        when(indexOperations.getMapping()).thenReturn(mapping);
+
+        FilterRequest badRange = new FilterRequest("year", "2020", "not-a-number");
+
+        assertThatThrownBy(() ->
+                paperService.getPapersByQuery("query", 10, 0, List.of(badRange)))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("not-a-number")
+                .hasMessageContaining("year");
+    }
+
+    // -------------------------------------------------------------------------
+    // Multi-field mapping: "base.sub" (e.g. "subjects.keyword") validates against
+    // properties.base.fields.sub, while a truly unknown field is still rejected
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getDistinctFilterValues_multiFieldName_validatesAgainstNestedFieldsMap() {
+        Map<String, Object> keywordSubField = Map.of("type", "keyword");
+        Map<String, Object> subjectsMapping = Map.of(
+                "type", "text",
+                "fields", Map.of("keyword", keywordSubField));
+        Map<String, Object> properties = Map.of("subjects", subjectsMapping);
+        Map<String, Object> mapping = Map.of("properties", properties);
+
+        when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
+        when(indexOperations.getMapping()).thenReturn(mapping);
+
+        co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate sterms =
+                co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate.of(s -> s
+                        .buckets(b -> b.array(List.of(
+                                co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket.of(t -> t.key(k -> k.stringValue("ai")).docCount(3))
+                        ))));
+        co.elastic.clients.elasticsearch._types.aggregations.Aggregate aggregate =
+                co.elastic.clients.elasticsearch._types.aggregations.Aggregate.of(a -> a.sterms(sterms));
+
+        org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregations aggregationsContainer =
+                new org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregations(
+                        Map.of("distinct_values", aggregate));
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        when(elasticsearchOperations.search(queryCaptor.capture(), eq(ElasticPaperDocument.class)))
+                .thenReturn(searchHits);
+        when(searchHits.getAggregations()).thenReturn(aggregationsContainer);
+
+        List<String> result = paperService.getDistinctFilterValues("subjects.keyword");
+
+        assertThat(result).containsExactly("ai");
+
+        org.springframework.data.elasticsearch.client.elc.NativeQuery nativeQuery =
+                (org.springframework.data.elasticsearch.client.elc.NativeQuery) queryCaptor.getValue();
+        co.elastic.clients.elasticsearch._types.aggregations.Aggregation termsAgg =
+                nativeQuery.getAggregations().get("distinct_values");
+        assertThat(termsAgg.terms().field()).isEqualTo("subjects.keyword");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getDistinctFilterValues_unknownSubField_throwsInvalidFilterException() {
+        Map<String, Object> subjectsMapping = Map.of(
+                "type", "text",
+                "fields", Map.of("keyword", Map.of("type", "keyword")));
+        Map<String, Object> properties = Map.of("subjects", subjectsMapping);
+        Map<String, Object> mapping = Map.of("properties", properties);
+
+        when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
+        when(indexOperations.getMapping()).thenReturn(mapping);
+
+        assertThatThrownBy(() -> paperService.getDistinctFilterValues("subjects.nonexistent"))
+                .isInstanceOf(InvalidFilterException.class)
+                .hasMessageContaining("subjects.nonexistent");
+    }
+
+    // -------------------------------------------------------------------------
+    // Bug 2: getDistinctFilterValues — invalid filter name throws InvalidFilterException
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getDistinctFilterValues_invalidFilterName_throwsInvalidFilterException() {
+        Map<String, Object> properties = Map.of("title", Map.of("type", "text"));
+        Map<String, Object> mapping = Map.of("properties", properties);
+
+        when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
+        when(indexOperations.getMapping()).thenReturn(mapping);
+
+        assertThatThrownBy(() -> paperService.getDistinctFilterValues("nonexistent_field"))
+                .isInstanceOf(InvalidFilterException.class)
+                .hasMessageContaining("nonexistent_field");
+    }
+
+    // -------------------------------------------------------------------------
+    // Bug 2: getDistinctFilterValues — returns distinct string bucket values
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getDistinctFilterValues_validFilterName_returnsBucketKeys() {
+        Map<String, Object> properties = Map.of("language", Map.of("type", "keyword"));
+        Map<String, Object> mapping = Map.of("properties", properties);
+
+        when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
+        when(indexOperations.getMapping()).thenReturn(mapping);
+
+        co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate sterms =
+                co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate.of(s -> s
+                        .buckets(b -> b.array(List.of(
+                                co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket.of(t -> t.key(k -> k.stringValue("en")).docCount(5)),
+                                co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket.of(t -> t.key(k -> k.stringValue("fr")).docCount(2))
+                        ))));
+        co.elastic.clients.elasticsearch._types.aggregations.Aggregate aggregate =
+                co.elastic.clients.elasticsearch._types.aggregations.Aggregate.of(a -> a.sterms(sterms));
+
+        org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregations aggregationsContainer =
+                new org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregations(
+                        Map.of("distinct_values", aggregate));
+
+        when(elasticsearchOperations.search(any(Query.class), eq(ElasticPaperDocument.class)))
+                .thenReturn(searchHits);
+        when(searchHits.getAggregations()).thenReturn(aggregationsContainer);
+
+        List<String> result = paperService.getDistinctFilterValues("language");
+
+        assertThat(result).containsExactlyInAnyOrder("en", "fr");
+    }
+
+    // -------------------------------------------------------------------------
+    // Bug 2: getDistinctFilterValues — null aggregations container returns empty list
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getDistinctFilterValues_noAggregations_returnsEmptyList() {
+        Map<String, Object> properties = Map.of("language", Map.of("type", "keyword"));
+        Map<String, Object> mapping = Map.of("properties", properties);
+
+        when(elasticsearchOperations.indexOps(ElasticPaperDocument.class)).thenReturn(indexOperations);
+        when(indexOperations.getMapping()).thenReturn(mapping);
+
+        when(elasticsearchOperations.search(any(Query.class), eq(ElasticPaperDocument.class)))
+                .thenReturn(searchHits);
+        when(searchHits.getAggregations()).thenReturn(null);
+
+        List<String> result = paperService.getDistinctFilterValues("language");
+
+        assertThat(result).isEmpty();
     }
 }

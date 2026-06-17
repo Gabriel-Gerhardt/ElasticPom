@@ -2,7 +2,6 @@ package com.elasticpom.external.rest;
 
 import com.elasticpom.adapters.PaperMapper;
 import com.elasticpom.core.model.Paper;
-import com.elasticpom.core.service.FilterService;
 import com.elasticpom.core.service.PaperService;
 import com.elasticpom.exception.BadRequestException;
 import com.elasticpom.exception.InvalidFilterException;
@@ -25,7 +24,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(PaperController.class)
@@ -39,9 +40,6 @@ class PaperControllerFilterTest {
 
     @MockitoBean
     private PaperMapper paperMapper;
-
-    @MockitoBean
-    private FilterService filterService;
 
     // -------------------------------------------------------------------------
     // Filters field is deserialized from snake_case JSON
@@ -196,5 +194,33 @@ class PaperControllerFilterTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/papers/filter-options — returns distinct values for a valid filter
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getFilterOptions_validFilterName_returns200WithValues() throws Exception {
+        when(paperService.getDistinctFilterValues("language")).thenReturn(List.of("en", "fr"));
+
+        mockMvc.perform(get("/api/papers/filter-options").param("filter_name", "language"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[\"en\",\"fr\"]"));
+
+        verify(paperService).getDistinctFilterValues("language");
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/papers/filter-options — invalid filter name → 404
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getFilterOptions_invalidFilterName_returns404() throws Exception {
+        when(paperService.getDistinctFilterValues("bad_field"))
+                .thenThrow(new InvalidFilterException("Filter 'bad_field' does not exist in the index mapping"));
+
+        mockMvc.perform(get("/api/papers/filter-options").param("filter_name", "bad_field"))
+                .andExpect(status().isNotFound());
     }
 }
