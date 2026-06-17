@@ -29,6 +29,9 @@ def main():
                 },
                 "creators": {
                     "type": "text",
+                    "fields": {
+                        "keyword": { "type": "keyword" }
+                    }
                 },
                 "subjects": {
                     "type": "text",
@@ -41,12 +44,6 @@ def main():
                 },
                 "publisher": {
                     "type": "text",
-                },
-                "contributors": {
-                    "type": "text",
-                    "fields": {
-                        "keyword": { "type": "keyword" }
-                    }
                 },
                 "date": {
                     "type": "date",
