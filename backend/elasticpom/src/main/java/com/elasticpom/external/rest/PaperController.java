@@ -1,6 +1,7 @@
 package com.elasticpom.external.rest;
 
 import com.elasticpom.adapters.dto.PaperDto;
+import com.elasticpom.adapters.dto.request.FilterOptionsRequest;
 import com.elasticpom.adapters.dto.request.PaperQueryRequest;
 import com.elasticpom.adapters.dto.request.SemanticSearchRequest;
 import com.elasticpom.core.service.PaperService;
@@ -40,9 +41,9 @@ public class PaperController {
         return ResponseEntity.ok(paperList);
     }
 
-    @GetMapping("/filter-options")
-    public ResponseEntity<List<String>> getFilterOptions(@RequestParam("filter_name") String filterName) {
-        List<String> values = service.getDistinctFilterValues(filterName);
+    @PostMapping("/filter-options")
+    public ResponseEntity<List<String>> getFilterOptions(@RequestBody @Validated FilterOptionsRequest request) {
+        List<String> values = service.getDistinctFilterValues(request.query(), request.filterName(), request.filters());
         return ResponseEntity.ok(values);
     }
 
