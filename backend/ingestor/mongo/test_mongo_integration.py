@@ -34,7 +34,7 @@ class TestSaveFilters:
         mock_filters_col = MagicMock()
         mock_db.__getitem__.return_value = mock_filters_col
 
-        filters = [{"filtername": "subjects.keyword", "order": 1, "type": "option"}]
+        filters = [{"filtername": "subjects", "order": 1, "type": "option"}]
         inst.save_filters(filters)
 
         mock_filters_col.bulk_write.assert_called_once()
@@ -43,8 +43,8 @@ class TestSaveFilters:
 
         # The UpdateOne filter must use _id = filtername (not {"filtername": ...})
         op_filter = ops[0]._filter
-        assert op_filter == {"_id": "subjects.keyword"}, (
-            f"Expected upsert filter {{'_id': 'subjects.keyword'}}, got {op_filter}"
+        assert op_filter == {"_id": "subjects"}, (
+            f"Expected upsert filter {{'_id': 'subjects'}}, got {op_filter}"
         )
 
     def test_document_includes_id_field(self, integration):
@@ -69,7 +69,7 @@ class TestSaveFilters:
         mock_db.__getitem__.return_value = mock_filters_col
 
         filters = [
-            {"filtername": "subjects.keyword", "order": 1, "type": "option"},
+            {"filtername": "subjects", "order": 1, "type": "option"},
             {"order": 2, "type": "option"},  # missing filtername
         ]
         inst.save_filters(filters)
@@ -93,16 +93,16 @@ class TestSaveFilters:
         mock_db.__getitem__.return_value = mock_filters_col
 
         filters = [
-            {"filtername": "subjects.keyword",     "order": 1, "type": "option"},
-            {"filtername": "contributors.keyword", "order": 2, "type": "option"},
-            {"filtername": "date",                 "order": 3, "type": "range"},
+            {"filtername": "subjects", "order": 1, "type": "option"},
+            {"filtername": "creators", "order": 2, "type": "option"},
+            {"filtername": "date",     "order": 3, "type": "range"},
         ]
         inst.save_filters(filters)
 
         ops = mock_filters_col.bulk_write.call_args[0][0]
         assert len(ops) == 3
         ids = [op._filter["_id"] for op in ops]
-        assert ids == ["subjects.keyword", "contributors.keyword", "date"]
+        assert ids == ["subjects", "creators", "date"]
 
     def test_bulk_write_error_is_caught_and_returned(self, integration):
         inst, mock_db = integration
@@ -112,7 +112,7 @@ class TestSaveFilters:
         error_details = {"writeErrors": [{"code": 11000}]}
         mock_filters_col.bulk_write.side_effect = BulkWriteError(error_details)
 
-        filters = [{"filtername": "subjects.keyword", "order": 1, "type": "option"}]
+        filters = [{"filtername": "subjects", "order": 1, "type": "option"}]
         result = inst.save_filters(filters)
 
         assert result == error_details
@@ -122,7 +122,7 @@ class TestSaveFilters:
         mock_filters_col = MagicMock()
         mock_db.__getitem__.return_value = mock_filters_col
 
-        filters = [{"filtername": "subjects.keyword", "order": 1, "type": "option"}]
+        filters = [{"filtername": "subjects", "order": 1, "type": "option"}]
         inst.save_filters(filters)
 
         _, kwargs = mock_filters_col.bulk_write.call_args

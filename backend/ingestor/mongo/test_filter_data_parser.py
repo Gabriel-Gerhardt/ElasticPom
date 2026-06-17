@@ -6,7 +6,9 @@ These tests validate:
 - Each filter has the required fields (filtername, order, type)
 - type values are exactly "option" or "range" — no other values
 - order values are 1, 2, 3 (ascending, no gaps, no duplicates)
-- filtername values match subjects.keyword / contributors.keyword / date
+- filtername values are clean logical names (subjects / creators / date),
+  with no ".keyword" suffix — the backend now resolves the keyword
+  sub-field internally, so the ingestor no longer needs to know about it.
 - No filter is missing any required field
 """
 
@@ -50,28 +52,36 @@ class TestFiltersConstant:
 
     def test_expected_filternames_present(self):
         names = {f["filtername"] for f in FILTERS}
-        expected = {"subjects.keyword", "contributors.keyword", "date"}
+        expected = {"subjects", "creators", "date"}
         assert names == expected, f"Expected filternames {expected}, got {names}"
 
+    def test_no_filtername_has_keyword_suffix(self):
+        """Filternames must be clean logical names; the backend resolves
+        .keyword sub-fields internally now, so callers shouldn't need to."""
+        for f in FILTERS:
+            assert not f["filtername"].endswith(".keyword"), (
+                f"filtername '{f['filtername']}' should not have a .keyword suffix"
+            )
+
     def test_subjects_has_type_option(self):
-        subjects = next(f for f in FILTERS if f["filtername"] == "subjects.keyword")
+        subjects = next(f for f in FILTERS if f["filtername"] == "subjects")
         assert subjects["type"] == "option"
 
-    def test_contributors_has_type_option(self):
-        contributors = next(f for f in FILTERS if f["filtername"] == "contributors.keyword")
-        assert contributors["type"] == "option"
+    def test_creators_has_type_option(self):
+        creators = next(f for f in FILTERS if f["filtername"] == "creators")
+        assert creators["type"] == "option"
 
     def test_date_has_type_range(self):
         date = next(f for f in FILTERS if f["filtername"] == "date")
         assert date["type"] == "range"
 
     def test_subjects_has_order_1(self):
-        subjects = next(f for f in FILTERS if f["filtername"] == "subjects.keyword")
+        subjects = next(f for f in FILTERS if f["filtername"] == "subjects")
         assert subjects["order"] == 1
 
-    def test_contributors_has_order_2(self):
-        contributors = next(f for f in FILTERS if f["filtername"] == "contributors.keyword")
-        assert contributors["order"] == 2
+    def test_creators_has_order_2(self):
+        creators = next(f for f in FILTERS if f["filtername"] == "creators")
+        assert creators["order"] == 2
 
     def test_date_has_order_3(self):
         date = next(f for f in FILTERS if f["filtername"] == "date")

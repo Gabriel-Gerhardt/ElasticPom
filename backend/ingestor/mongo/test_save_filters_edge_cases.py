@@ -119,7 +119,7 @@ class TestSaveFiltersEdgeCases:
         assert len(ops) == 3
 
         ids = [op._filter["_id"] for op in ops]
-        assert set(ids) == {"subjects.keyword", "contributors.keyword", "date"}
+        assert set(ids) == {"subjects", "creators", "date"}
 
     def test_set_doc_for_production_filters_includes_correct_types(self, integration):
         """Verify $set documents for the production FILTERS have correct type values."""
@@ -134,8 +134,8 @@ class TestSaveFiltersEdgeCases:
         ops = mock_filters_col.bulk_write.call_args[0][0]
         type_map = {op._filter["_id"]: op._doc["$set"]["type"] for op in ops}
 
-        assert type_map["subjects.keyword"] == "option"
-        assert type_map["contributors.keyword"] == "option"
+        assert type_map["subjects"] == "option"
+        assert type_map["creators"] == "option"
         assert type_map["date"] == "range"
 
     def test_set_doc_for_production_filters_includes_correct_orders(self, integration):
@@ -151,6 +151,35 @@ class TestSaveFiltersEdgeCases:
         ops = mock_filters_col.bulk_write.call_args[0][0]
         order_map = {op._filter["_id"]: op._doc["$set"]["order"] for op in ops}
 
-        assert order_map["subjects.keyword"] == 1
-        assert order_map["contributors.keyword"] == 2
+        assert order_map["subjects"] == 1
+        assert order_map["creators"] == 2
         assert order_map["date"] == 3
+
+    def test_save_filters_deletes_stale_filter_docs(self, integration):
+        """After upserting the current FILTERS, any pre-existing filter doc
+        whose _id is no longer in the current set (e.g. an old
+        'contributors.keyword' orphan) must be removed."""
+        inst, mock_db = integration
+        mock_filters_col = MagicMock()
+        mock_db.__getitem__.return_value = mock_filters_col
+
+        filters = [
+            {"filtername": "subjects", "order": 1, "type": "option"},
+            {"filtername": "creators", "order": 2, "type": "option"},
+        ]
+        inst.save_filters(filters)
+
+        mock_filters_col.delete_many.assert_called_once_with(
+            {"_id": {"$nin": ["subjects", "creators"]}}
+        )
+
+    def test_save_filters_does_not_delete_when_all_filters_are_invalid(self, integration):
+        """If every filter is skipped (no filtername), save_filters returns
+        early and must not call delete_many at all."""
+        inst, mock_db = integration
+        mock_filters_col = MagicMock()
+        mock_db.__getitem__.return_value = mock_filters_col
+
+        inst.save_filters([{"order": 1, "type": "option"}])
+
+        mock_filters_col.delete_many.assert_not_called()
