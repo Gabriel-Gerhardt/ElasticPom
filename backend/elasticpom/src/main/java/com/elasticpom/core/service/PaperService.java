@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -304,6 +305,8 @@ public class PaperService {
     }
 
     private List<String> findIdsBySemanticSearch(float[] queryVector, Integer pageSize, Integer page, List<FilterRequest> filters) {
+        log.info("Query vector length={}, first 5 values={}", queryVector.length,
+                Arrays.toString(Arrays.copyOf(queryVector, Math.min(5, queryVector.length))));
         List<Float> vectorList = new ArrayList<>(queryVector.length);
         for (float v : queryVector) {
             vectorList.add(v);
