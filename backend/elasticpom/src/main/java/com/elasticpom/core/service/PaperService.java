@@ -350,11 +350,13 @@ public class PaperService {
      */
     public List<Paper> getPapersByHybridSearch(String query, Integer pageSize, Integer page, List<FilterRequest> filters) {
         List<String> syntacticIds = findIdsByQuery(query, pageSize, page, filters);
+        log.info("Hybrid search syntactic leg for query '{}' returned {} ids", query, syntacticIds.size());
 
         List<String> semanticIds;
         try {
             float[] queryVector = embeddingService.embed(query);
             semanticIds = findIdsBySemanticSearch(queryVector, pageSize, page, filters);
+            log.info("Hybrid search semantic leg for query '{}' returned {} ids", query, semanticIds.size());
         } catch (EmbeddingGenerationException e) {
             log.warn("Embedding generation failed, hybrid search degrading to BM25-only for query '{}'", query, e);
             semanticIds = List.of();
@@ -368,6 +370,8 @@ public class PaperService {
         } else {
             mergedIds = RrfMerger.merge(syntacticIds, semanticIds, pageSize);
         }
+        log.info("Hybrid search for query '{}' merged into {} ids (syntactic={}, semantic={})",
+                query, mergedIds.size(), syntacticIds.size(), semanticIds.size());
 
         if (mergedIds.isEmpty()) {
             throw new PaperNotInElasticException("There is no paper in the elastic for the page " + page + " and this query " + query);
