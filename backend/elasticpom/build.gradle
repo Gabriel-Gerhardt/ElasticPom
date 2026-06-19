@@ -82,32 +82,58 @@ tasks.register('downloadEmbeddingModel') {
 				logger.lifecycle("${dest.name} already cached (${expected} bytes), skipping")
 				return
 			}
-			logger.lifecycle("Downloading ${url} (expected ${expected} bytes)")
-			def request = java.net.http.HttpRequest.newBuilder(URI.create(url))
-				.timeout(java.time.Duration.ofMinutes(5))
-				.GET()
-				.build()
-			def progress = new Thread({
-				while (!Thread.currentThread().isInterrupted()) {
-					Thread.sleep(3000)
-					long current = dest.exists() ? dest.length() : 0L
-					if (expected > 0) {
-						logger.lifecycle("  ${dest.name}: ${current} / ${expected} bytes (${(current * 100 / expected)}%)")
-					} else {
-						logger.lifecycle("  ${dest.name}: ${current} bytes")
+			int maxAttempts = 8
+			for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+				long existing = dest.exists() ? dest.length() : 0L
+				if (expected > 0 && existing >= expected) {
+					break
+				}
+				logger.lifecycle("Downloading ${url} (attempt ${attempt}/${maxAttempts}, resuming from ${existing} of ${expected} bytes)")
+				def requestBuilder = java.net.http.HttpRequest.newBuilder(URI.create(url))
+					.timeout(java.time.Duration.ofMinutes(5))
+					.GET()
+				if (existing > 0) {
+					requestBuilder.header('Range', "bytes=${existing}-")
+				}
+				def request = requestBuilder.build()
+				def progress = new Thread({
+					while (!Thread.currentThread().isInterrupted()) {
+						Thread.sleep(3000)
+						long current = dest.exists() ? dest.length() : 0L
+						if (expected > 0) {
+							logger.lifecycle("  ${dest.name}: ${current} / ${expected} bytes (${(current * 100 / expected)}%)")
+						} else {
+							logger.lifecycle("  ${dest.name}: ${current} bytes")
+						}
 					}
+				})
+				progress.daemon = true
+				progress.start()
+				try {
+					def bodyHandler = existing > 0
+						? java.net.http.HttpResponse.BodyHandlers.ofFile(dest.toPath(), java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND)
+						: java.net.http.HttpResponse.BodyHandlers.ofFile(dest.toPath())
+					def response = client.send(request, bodyHandler)
+					int code = response.statusCode()
+					boolean ok = existing > 0 ? code == 206 : code == 200
+					if (!ok) {
+						if (existing > 0 && code == 200) {
+							// server ignored the Range header and resent the whole file from scratch onto our append - restart clean
+							dest.delete()
+							throw new IOException("Server did not honor Range request (HTTP 200 instead of 206); restarting from scratch")
+						}
+						dest.delete()
+						throw new IOException("Download failed (HTTP ${code})")
+					}
+				} catch (IOException e) {
+					logger.lifecycle("Attempt ${attempt} for ${dest.name} failed: ${e.message}")
+					if (attempt == maxAttempts) {
+						dest.delete()
+						throw new GradleException("Failed to download ${url} after ${maxAttempts} attempts: ${e.message}", e)
+					}
+				} finally {
+					progress.interrupt()
 				}
-			})
-			progress.daemon = true
-			progress.start()
-			try {
-				def response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofFile(dest.toPath()))
-				if (response.statusCode() != 200) {
-					dest.delete()
-					throw new GradleException("Download failed (HTTP ${response.statusCode()}) for ${url}")
-				}
-			} finally {
-				progress.interrupt()
 			}
 			if (expected > 0 && dest.length() != expected) {
 				dest.delete()
