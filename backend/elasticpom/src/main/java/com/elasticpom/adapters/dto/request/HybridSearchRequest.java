@@ -2,9 +2,13 @@ package com.elasticpom.adapters.dto.request;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
-public record SemanticSearchRequest(
+import java.util.List;
 
+public record HybridSearchRequest(
+
+        @NotNull(message = "Query cannot be null")
         String query,
 
         @Min(value = 1, message = "Page size should be bigger than 0")
@@ -12,6 +16,8 @@ public record SemanticSearchRequest(
         Integer pageSize,
 
         @Min(value = 0, message = "Page number should be bigger than 0")
-        Integer page
+        Integer page,
+
+        List<FilterRequest> filters
 ) {
 }

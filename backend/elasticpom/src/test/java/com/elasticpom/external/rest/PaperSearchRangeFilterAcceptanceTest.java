@@ -4,6 +4,7 @@ import com.elasticpom.adapters.PaperMapper;
 import com.elasticpom.adapters.dto.PaperDto;
 import com.elasticpom.core.model.Paper;
 import com.elasticpom.core.service.PaperService;
+import com.elasticpom.core.service.embedding.EmbeddingService;
 import com.elasticpom.external.document.ElasticPaperDocument;
 import com.elasticpom.external.document.PaperDocument;
 import com.elasticpom.external.integration.ElasticPaperRepository;
@@ -70,6 +71,9 @@ class PaperSearchRangeFilterAcceptanceTest {
 
     @MockitoBean
     private ElasticsearchOperations elasticsearchOperations;
+
+    @MockitoBean
+    private EmbeddingService embeddingService;
 
     @SuppressWarnings("unchecked")
     @Test

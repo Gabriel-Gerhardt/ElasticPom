@@ -3,7 +3,6 @@ package com.elasticpom.external.rest;
 import com.elasticpom.adapters.PaperMapper;
 import com.elasticpom.core.model.Paper;
 import com.elasticpom.core.service.PaperService;
-import com.elasticpom.exception.EmbeddingGenerationException;
 import com.elasticpom.exception.PaperNotInElasticException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +22,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(PaperController.class)
-class PaperControllerSemanticSearchTest {
+class PaperControllerHybridSearchTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -35,14 +34,14 @@ class PaperControllerSemanticSearchTest {
     private PaperMapper paperMapper;
 
     // -------------------------------------------------------------------------
-    // Valid request (text query only - no queryVector) → 200
+    // Valid request (text query only - no queryVector) -> 200
     // -------------------------------------------------------------------------
 
     @Test
-    void semanticSearch_validRequest_returns200() throws Exception {
+    void hybridSearch_validRequest_returns200() throws Exception {
         Paper paper = new Paper();
         paper.setPaperId("p1");
-        when(paperService.getPapersBySemanticSearch(anyString(), anyInt(), anyInt()))
+        when(paperService.getPapersByHybridSearch(anyString(), anyInt(), anyInt(), isNull()))
                 .thenReturn(List.of(paper));
         when(paperMapper.toDto(any())).thenReturn(null);
 
@@ -54,87 +53,45 @@ class PaperControllerSemanticSearchTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/papers/semantic-search")
+        mockMvc.perform(post("/api/papers/hybrid-search")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isOk());
     }
 
     // -------------------------------------------------------------------------
-    // page * pageSize >= 10000 → 400
+    // Valid request with filters -> 200, filters passed through to the service
     // -------------------------------------------------------------------------
 
     @Test
-    void semanticSearch_pageTooLarge_returns400() throws Exception {
-        String requestBody = """
-                {
-                  "query": "deep learning",
-                  "pageSize": 50,
-                  "page": 200
-                }
-                """;
-
-        mockMvc.perform(post("/api/papers/semantic-search")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest());
-    }
-
-    // -------------------------------------------------------------------------
-    // Null query → 404 (service throws PaperNotInElasticException)
-    // -------------------------------------------------------------------------
-
-    @Test
-    void semanticSearch_nullQuery_returns404() throws Exception {
-        when(paperService.getPapersBySemanticSearch(isNull(), anyInt(), anyInt()))
-                .thenThrow(new PaperNotInElasticException("Query cannot be null"));
-
-        String requestBody = """
-                {
-                  "query": null,
-                  "pageSize": 10,
-                  "page": 0
-                }
-                """;
-
-        mockMvc.perform(post("/api/papers/semantic-search")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isNotFound());
-    }
-
-    // -------------------------------------------------------------------------
-    // Embedding generation fails → 500, via GlobalExceptionHandler's
-    // EmbeddingGenerationException mapping (semantic search has no BM25 fallback
-    // leg, so the exception must propagate to the client as a 500, not a silent
-    // empty result or a 404).
-    // -------------------------------------------------------------------------
-
-    @Test
-    void semanticSearch_embeddingGenerationFails_returns500() throws Exception {
-        when(paperService.getPapersBySemanticSearch(anyString(), anyInt(), anyInt()))
-                .thenThrow(new EmbeddingGenerationException("Failed to generate embedding for query text", new RuntimeException("boom")));
+    void hybridSearch_withFilters_passesFiltersToService() throws Exception {
+        Paper paper = new Paper();
+        paper.setPaperId("p1");
+        when(paperService.getPapersByHybridSearch(anyString(), anyInt(), anyInt(), any()))
+                .thenReturn(List.of(paper));
+        when(paperMapper.toDto(any())).thenReturn(null);
 
         String requestBody = """
                 {
                   "query": "deep learning",
                   "pageSize": 10,
-                  "page": 0
+                  "page": 0,
+                  "filters": [{"filter_name": "language", "filter_option": "en"}]
                 }
                 """;
 
-        mockMvc.perform(post("/api/papers/semantic-search")
+        mockMvc.perform(post("/api/papers/hybrid-search")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().isOk());
     }
 
     // -------------------------------------------------------------------------
-    // pageSize out of range (> 50) → 400
+    // pageSize out of range (> 50) -> 400
     // -------------------------------------------------------------------------
 
     @Test
-    void semanticSearch_pageSizeTooLarge_returns400() throws Exception {
+    void hybridSearch_pageSizeTooLarge_returns400() throws Exception {
         String requestBody = """
                 {
                   "query": "deep learning",
@@ -143,18 +100,18 @@ class PaperControllerSemanticSearchTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/papers/semantic-search")
+        mockMvc.perform(post("/api/papers/hybrid-search")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest());
     }
 
     // -------------------------------------------------------------------------
-    // pageSize below minimum (< 1) → 400
+    // pageSize below minimum (< 1) -> 400
     // -------------------------------------------------------------------------
 
     @Test
-    void semanticSearch_pageSizeTooSmall_returns400() throws Exception {
+    void hybridSearch_pageSizeTooSmall_returns400() throws Exception {
         String requestBody = """
                 {
                   "query": "deep learning",
@@ -163,9 +120,72 @@ class PaperControllerSemanticSearchTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/papers/semantic-search")
+        mockMvc.perform(post("/api/papers/hybrid-search")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // page * pageSize >= 10000 -> 400
+    // -------------------------------------------------------------------------
+
+    @Test
+    void hybridSearch_pageTooLarge_returns400() throws Exception {
+        String requestBody = """
+                {
+                  "query": "deep learning",
+                  "pageSize": 50,
+                  "page": 200
+                }
+                """;
+
+        mockMvc.perform(post("/api/papers/hybrid-search")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // Null query -> 400 (validation)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void hybridSearch_nullQuery_returns400() throws Exception {
+        String requestBody = """
+                {
+                  "query": null,
+                  "pageSize": 10,
+                  "page": 0
+                }
+                """;
+
+        mockMvc.perform(post("/api/papers/hybrid-search")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    // -------------------------------------------------------------------------
+    // No results from either leg -> 404 (service throws PaperNotInElasticException)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void hybridSearch_noResults_returns404() throws Exception {
+        when(paperService.getPapersByHybridSearch(anyString(), anyInt(), anyInt(), isNull()))
+                .thenThrow(new PaperNotInElasticException("There is no paper in the elastic for the page 0 and this query deep learning"));
+
+        String requestBody = """
+                {
+                  "query": "deep learning",
+                  "pageSize": 10,
+                  "page": 0
+                }
+                """;
+
+        mockMvc.perform(post("/api/papers/hybrid-search")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isNotFound());
     }
 }

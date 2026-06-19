@@ -3,6 +3,7 @@ package com.elasticpom.core.service;
 import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import com.elasticpom.adapters.PaperMapper;
 import com.elasticpom.adapters.dto.request.FilterRequest;
+import com.elasticpom.core.service.embedding.EmbeddingService;
 import com.elasticpom.exception.BadRequestException;
 import com.elasticpom.exception.InvalidFilterException;
 import com.elasticpom.external.document.ElasticPaperDocument;
@@ -55,11 +56,14 @@ class PaperServiceFilterTest {
     @SuppressWarnings("rawtypes")
     private SearchHits searchHits;
 
+    @Mock
+    private EmbeddingService embeddingService;
+
     private PaperService paperService;
 
     @BeforeEach
     void setUp() {
-        paperService = new PaperService(paperRepository, elasticRepository, paperMapper, elasticsearchOperations);
+        paperService = new PaperService(paperRepository, elasticRepository, paperMapper, elasticsearchOperations, embeddingService);
     }
 
     // -------------------------------------------------------------------------

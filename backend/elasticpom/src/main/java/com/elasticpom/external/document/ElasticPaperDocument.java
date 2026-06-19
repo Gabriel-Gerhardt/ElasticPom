@@ -20,7 +20,7 @@ public class ElasticPaperDocument {
     @Field(type = FieldType.Keyword)
     private String id;
 
-    @Field(type = FieldType.Dense_Vector, dims = 384)
+    @Field(name = "embed_paper", type = FieldType.Dense_Vector, dims = 384)
     private float[] embedPaper;
 
 }

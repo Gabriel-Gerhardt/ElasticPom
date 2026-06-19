@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getMostRelevant, searchByQuery, getFilterOptions } from './papers';
+import { getMostRelevant, searchByQuery, hybridSearch, getFilterOptions } from './papers';
 
 const mockPapers = [
 	{
@@ -211,6 +211,146 @@ describe('searchByQuery', () => {
 		const body = JSON.parse(options?.body as string);
 		expect(body.pageSize).toBe(10);
 		expect(body.page).toBe(0);
+	});
+
+	it('propagates a network failure (rejected fetch) rather than swallowing it', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+		await expect(searchByQuery('network failure test')).rejects.toThrow('Failed to fetch');
+	});
+});
+
+describe('hybridSearch', () => {
+	beforeEach(() => {
+		vi.stubGlobal('fetch', vi.fn());
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('calls the correct endpoint with POST method', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: true,
+			json: async () => mockPapers
+		} as Response);
+
+		await hybridSearch('machine learning');
+
+		expect(mockFetch).toHaveBeenCalledOnce();
+		const [url, options] = mockFetch.mock.calls[0];
+		expect(url).toBe('/api/papers/hybrid-search');
+		expect(options?.method).toBe('POST');
+	});
+
+	it('sends correct Content-Type header', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: true,
+			json: async () => []
+		} as Response);
+
+		await hybridSearch('test query');
+
+		const [, options] = mockFetch.mock.calls[0];
+		expect((options?.headers as Record<string, string>)?.['Content-Type']).toBe('application/json');
+	});
+
+	it('sends correct request body with query, pageSize, page, and filters', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: true,
+			json: async () => mockPapers
+		} as Response);
+
+		const filters = [{ filter_name: 'language', filter_option: 'en' }];
+		await hybridSearch('neural networks', 5, 2, filters);
+
+		const [, options] = mockFetch.mock.calls[0];
+		const body = JSON.parse(options?.body as string);
+		expect(body).toEqual({
+			query: 'neural networks',
+			pageSize: 5,
+			page: 2,
+			filters: [{ filter_name: 'language', filter_option: 'en' }]
+		});
+	});
+
+	it('sends empty filters array by default', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: true,
+			json: async () => []
+		} as Response);
+
+		await hybridSearch('deep learning');
+
+		const [, options] = mockFetch.mock.calls[0];
+		const body = JSON.parse(options?.body as string);
+		expect(body.filters).toEqual([]);
+	});
+
+	it('returns parsed JSON on success', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: true,
+			json: async () => mockPapers
+		} as Response);
+
+		const result = await hybridSearch('AI');
+		expect(result).toEqual(mockPapers);
+	});
+
+	it('throws an error object with message and status on non-ok response', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: false,
+			status: 500,
+			statusText: 'Internal Server Error'
+		} as Response);
+
+		await expect(hybridSearch('error test')).rejects.toMatchObject({
+			message: 'Search failed: Internal Server Error',
+			status: 500
+		});
+	});
+
+	it('defaults to pageSize=10 and page=0', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: true,
+			json: async () => []
+		} as Response);
+
+		await hybridSearch('default params');
+
+		const [, options] = mockFetch.mock.calls[0];
+		const body = JSON.parse(options?.body as string);
+		expect(body.pageSize).toBe(10);
+		expect(body.page).toBe(0);
+	});
+
+	it('propagates a network failure (rejected fetch) rather than swallowing it', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+		await expect(hybridSearch('network failure test')).rejects.toThrow('Failed to fetch');
+	});
+
+	it('mirrors searchByQuery error handling exactly: same error object shape on non-ok response', async () => {
+		const mockFetch = vi.mocked(fetch);
+		mockFetch.mockResolvedValueOnce({
+			ok: false,
+			status: 503,
+			statusText: 'Service Unavailable'
+		} as Response);
+
+		await expect(hybridSearch('mirrors error test')).rejects.toMatchObject({
+			message: 'Search failed: Service Unavailable',
+			status: 503
+		});
 	});
 });
 

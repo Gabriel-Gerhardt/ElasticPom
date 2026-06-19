@@ -1,6 +1,7 @@
 package com.elasticpom.core.service;
 
 import com.elasticpom.adapters.PaperMapper;
+import com.elasticpom.core.service.embedding.EmbeddingService;
 import com.elasticpom.exception.InvalidFilterException;
 import com.elasticpom.external.document.ElasticPaperDocument;
 import com.elasticpom.external.integration.ElasticPaperRepository;
@@ -47,11 +48,14 @@ class PaperServiceFilterOptionsEdgeCaseTest {
     @Mock
     private IndexOperations indexOperations;
 
+    @Mock
+    private EmbeddingService embeddingService;
+
     private PaperService paperService;
 
     @BeforeEach
     void setUp() {
-        paperService = new PaperService(paperRepository, elasticRepository, paperMapper, elasticsearchOperations);
+        paperService = new PaperService(paperRepository, elasticRepository, paperMapper, elasticsearchOperations, embeddingService);
     }
 
     @Test

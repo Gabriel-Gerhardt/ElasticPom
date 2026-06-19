@@ -29,6 +29,24 @@ export async function searchByQuery(
 	return res.json();
 }
 
+export async function hybridSearch(
+	query: string,
+	pageSize = 10,
+	page = 0,
+	filters: FilterRequest[] = []
+): Promise<PaperDto[]> {
+	const body: SearchRequest = { query, pageSize, page, filters };
+	const res = await fetch(`${BASE}/hybrid-search`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	if (!res.ok) {
+		throw { message: `Search failed: ${res.statusText}`, status: res.status };
+	}
+	return res.json();
+}
+
 export async function getFilters(): Promise<FilterDto[]> {
 	const res = await fetch('/api/filters');
 	if (!res.ok) {

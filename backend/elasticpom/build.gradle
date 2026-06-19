@@ -24,6 +24,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.mapstruct:mapstruct:1.6.3'
+	implementation 'com.microsoft.onnxruntime:onnxruntime:1.26.0'
+	implementation 'ai.djl.huggingface:tokenizers:0.36.0'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
@@ -39,4 +41,106 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// Fetches the ONNX export of sentence-transformers/all-MiniLM-L6-v2 (~90MB model +
+// tokenizer config) into a gitignored local cache so the embedding model never has to be
+// committed to git. Not wired into `build`/`test` - those must work offline (the real
+// EmbeddingService implementation loads lazily from this same cache path at startup and
+// the unit tests use fixtures), so this task only runs on demand:
+//   ./gradlew downloadEmbeddingModel
+def modelCacheDir = layout.projectDirectory.dir('.model-cache/all-MiniLM-L6-v2')
+tasks.register('downloadEmbeddingModel') {
+	group = 'embedding'
+	description = 'Downloads the all-MiniLM-L6-v2 ONNX model + tokenizer into .model-cache (gitignored, on-demand only).'
+	def modelUrl = 'https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/onnx/model.onnx'
+	def tokenizerUrl = 'https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer.json'
+	def modelFile = modelCacheDir.file('model.onnx').asFile
+	def tokenizerFile = modelCacheDir.file('tokenizer.json').asFile
+	outputs.files(modelFile, tokenizerFile)
+	doLast {
+		modelCacheDir.asFile.mkdirs()
+		def client = java.net.http.HttpClient.newBuilder()
+			.followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
+			.connectTimeout(java.time.Duration.ofSeconds(30))
+			.version(java.net.http.HttpClient.Version.HTTP_1_1)
+			.build()
+		def expectedLength = { String url ->
+			def head = java.net.http.HttpRequest.newBuilder(URI.create(url))
+				.method('HEAD', java.net.http.HttpRequest.BodyPublishers.noBody())
+				.timeout(java.time.Duration.ofSeconds(30))
+				.build()
+			def resp = client.send(head, java.net.http.HttpResponse.BodyHandlers.discarding())
+			if (resp.statusCode() != 200) {
+				throw new GradleException("HEAD failed (HTTP ${resp.statusCode()}) for ${url}")
+			}
+			resp.headers().firstValueAsLong('content-length').orElse(-1L)
+		}
+		def fetch = { String url, File dest ->
+			long expected = expectedLength(url)
+			if (dest.exists() && expected > 0 && dest.length() == expected) {
+				logger.lifecycle("${dest.name} already cached (${expected} bytes), skipping")
+				return
+			}
+			int maxAttempts = 8
+			for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+				long existing = dest.exists() ? dest.length() : 0L
+				if (expected > 0 && existing >= expected) {
+					break
+				}
+				logger.lifecycle("Downloading ${url} (attempt ${attempt}/${maxAttempts}, resuming from ${existing} of ${expected} bytes)")
+				def requestBuilder = java.net.http.HttpRequest.newBuilder(URI.create(url))
+					.timeout(java.time.Duration.ofMinutes(5))
+					.GET()
+				if (existing > 0) {
+					requestBuilder.header('Range', "bytes=${existing}-")
+				}
+				def request = requestBuilder.build()
+				def progress = new Thread({
+					while (!Thread.currentThread().isInterrupted()) {
+						Thread.sleep(3000)
+						long current = dest.exists() ? dest.length() : 0L
+						if (expected > 0) {
+							logger.lifecycle("  ${dest.name}: ${current} / ${expected} bytes (${(current * 100 / expected)}%)")
+						} else {
+							logger.lifecycle("  ${dest.name}: ${current} bytes")
+						}
+					}
+				})
+				progress.daemon = true
+				progress.start()
+				try {
+					def bodyHandler = existing > 0
+						? java.net.http.HttpResponse.BodyHandlers.ofFile(dest.toPath(), java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND)
+						: java.net.http.HttpResponse.BodyHandlers.ofFile(dest.toPath())
+					def response = client.send(request, bodyHandler)
+					int code = response.statusCode()
+					boolean ok = existing > 0 ? code == 206 : code == 200
+					if (!ok) {
+						if (existing > 0 && code == 200) {
+							// server ignored the Range header and resent the whole file from scratch onto our append - restart clean
+							dest.delete()
+							throw new IOException("Server did not honor Range request (HTTP 200 instead of 206); restarting from scratch")
+						}
+						dest.delete()
+						throw new IOException("Download failed (HTTP ${code})")
+					}
+				} catch (IOException e) {
+					logger.lifecycle("Attempt ${attempt} for ${dest.name} failed: ${e.message}")
+					if (attempt == maxAttempts) {
+						dest.delete()
+						throw new GradleException("Failed to download ${url} after ${maxAttempts} attempts: ${e.message}", e)
+					}
+				} finally {
+					progress.interrupt()
+				}
+			}
+			if (expected > 0 && dest.length() != expected) {
+				dest.delete()
+				throw new GradleException("Downloaded file size mismatch for ${url}: expected ${expected} bytes, got ${dest.length()}")
+			}
+		}
+		fetch(modelUrl, modelFile)
+		fetch(tokenizerUrl, tokenizerFile)
+	}
 }

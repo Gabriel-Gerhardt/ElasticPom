@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, waitFor } from '@testing-library/svelte';
+import { render, waitFor, fireEvent } from '@testing-library/svelte';
 
 // Minimal hand-rolled store (avoids importing svelte/store inside vi.hoisted,
 // which runs before regular imports are initialized).
@@ -25,7 +25,7 @@ vi.mock('$app/stores', () => ({
 
 vi.mock('$lib/api/papers', () => ({
 	getMostRelevant: vi.fn(),
-	searchByQuery: vi.fn(),
+	hybridSearch: vi.fn(),
 	getFilters: vi.fn(),
 	getFilterOptions: vi.fn()
 }));
@@ -78,7 +78,7 @@ function setQuery(q: string) {
 beforeEach(() => {
 	vi.resetAllMocks();
 	vi.mocked(papersApi.getMostRelevant).mockResolvedValue([]);
-	vi.mocked(papersApi.searchByQuery).mockResolvedValue([]);
+	vi.mocked(papersApi.hybridSearch).mockResolvedValue([]);
 	vi.mocked(papersApi.getFilters).mockResolvedValue([]);
 });
 
@@ -93,19 +93,19 @@ describe('results +page.svelte', () => {
 	it('renders the filter sidebar when there is an active search query', async () => {
 		setQuery('neural networks');
 		const { findByText } = render(Page);
-		await waitFor(() => expect(papersApi.searchByQuery).toHaveBeenCalled());
+		await waitFor(() => expect(papersApi.hybridSearch).toHaveBeenCalled());
 		expect(await findByText('Filters')).toBeInTheDocument();
 	});
 
 	it('renders paper link buttons end-to-end for a mix of link/no-link results, with no leakage between cards', async () => {
 		setQuery('neural networks');
-		vi.mocked(papersApi.searchByQuery).mockResolvedValue([
+		vi.mocked(papersApi.hybridSearch).mockResolvedValue([
 			makePaper({ id: 'a', title: 'Paper With DOI', identifier: 'doi:10.1234/a' }),
 			makePaper({ id: 'b', title: 'Paper Without Link', identifier: null })
 		]);
 
 		const { findAllByRole, getByText } = render(Page);
-		await waitFor(() => expect(papersApi.searchByQuery).toHaveBeenCalled());
+		await waitFor(() => expect(papersApi.hybridSearch).toHaveBeenCalled());
 
 		expect(getByText('Paper With DOI')).toBeInTheDocument();
 		expect(getByText('Paper Without Link')).toBeInTheDocument();
@@ -114,5 +114,43 @@ describe('results +page.svelte', () => {
 		expect(links).toHaveLength(1);
 		expect(links[0]).toHaveAttribute('href', 'https://doi.org/10.1234/a');
 		expect(links[0]).toHaveAttribute('target', '_blank');
+	});
+
+	// -------------------------------------------------------------------------
+	// Regression guard: filters produced by FilterSidebar (a FilterRequest[]
+	// emitted on its `change` event, e.g. from clicking an option button) must
+	// actually flow into the hybridSearch call from +page.svelte, not just into
+	// the unit-tested hybridSearch client function in isolation. This exercises
+	// the REAL FilterSidebar component (not a mock), clicking a real rendered
+	// filter option button to trigger its real dispatch('change', ...) call, and
+	// asserts the page wires that payload into hybridSearch's filters argument -
+	// catching a "forgotten filters" wiring bug in +page.svelte itself (e.g.
+	// activeFilters declared but never passed through to the search call).
+	// -------------------------------------------------------------------------
+
+	it('passes activeFilters through to hybridSearch when a filter option is clicked in the real FilterSidebar', async () => {
+		setQuery('neural networks');
+		vi.mocked(papersApi.getFilters).mockResolvedValue([
+			{ filtername: 'language', order: 0, type: 'option' }
+		]);
+		vi.mocked(papersApi.getFilterOptions).mockResolvedValue(['en', 'fr']);
+
+		const { findByText } = render(Page);
+		await waitFor(() => expect(papersApi.hybridSearch).toHaveBeenCalled());
+
+		// Initial call: no filters active yet.
+		expect(papersApi.hybridSearch).toHaveBeenLastCalledWith('neural networks', 10, 0, []);
+
+		// Wait for FilterSidebar's debounced loadFilters() to populate the
+		// option button, then click it - the real component dispatches
+		// `change` with the real FilterRequest[] payload from here.
+		const optionButton = await findByText('en');
+		await fireEvent.click(optionButton);
+
+		await waitFor(() =>
+			expect(papersApi.hybridSearch).toHaveBeenLastCalledWith('neural networks', 10, 0, [
+				{ filter_name: 'language', filter_option: 'en' }
+			])
+		);
 	});
 });
