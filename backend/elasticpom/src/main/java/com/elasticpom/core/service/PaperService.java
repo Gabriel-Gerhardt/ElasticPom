@@ -375,6 +375,14 @@ public class PaperService {
         }
         log.info("Hybrid search for query '{}' merged into {} ids (syntactic={}, semantic={})",
                 query, mergedIds.size(), syntacticIds.size(), semanticIds.size());
+        for (String id : mergedIds) {
+            int syntacticRank = syntacticIds.indexOf(id);
+            int semanticRank = semanticIds.indexOf(id);
+            String source = syntacticRank >= 0 && semanticRank >= 0 ? "BOTH"
+                    : syntacticRank >= 0 ? "SYNTACTIC" : "SEMANTIC";
+            log.info("  merged id={} source={} syntacticRank={} semanticRank={}",
+                    id, source, syntacticRank >= 0 ? syntacticRank + 1 : "-", semanticRank >= 0 ? semanticRank + 1 : "-");
+        }
 
         if (mergedIds.isEmpty()) {
             throw new PaperNotInElasticException("There is no paper in the elastic for the page " + page + " and this query " + query);
