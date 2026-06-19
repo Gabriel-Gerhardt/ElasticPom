@@ -29,6 +29,7 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +37,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+@Slf4j
 @Service
 public class PaperService {
     private static final Set<String> RANGE_TYPES = Set.of("integer", "long", "float", "double", "date");
@@ -354,6 +356,7 @@ public class PaperService {
             float[] queryVector = embeddingService.embed(query);
             semanticIds = findIdsBySemanticSearch(queryVector, pageSize, page, filters);
         } catch (EmbeddingGenerationException e) {
+            log.warn("Embedding generation failed, hybrid search degrading to BM25-only for query '{}'", query, e);
             semanticIds = List.of();
         }
 
