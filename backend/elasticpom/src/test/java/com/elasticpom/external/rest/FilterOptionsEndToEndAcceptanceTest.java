@@ -2,6 +2,7 @@ package com.elasticpom.external.rest;
 
 import com.elasticpom.adapters.PaperMapper;
 import com.elasticpom.core.service.PaperService;
+import com.elasticpom.core.service.embedding.EmbeddingService;
 import com.elasticpom.external.document.ElasticPaperDocument;
 import com.elasticpom.external.integration.ElasticPaperRepository;
 import com.elasticpom.external.integration.PaperRepository;
@@ -64,6 +65,9 @@ class FilterOptionsEndToEndAcceptanceTest {
 
     @MockitoBean
     private ElasticsearchOperations elasticsearchOperations;
+
+    @MockitoBean
+    private EmbeddingService embeddingService;
 
     @SuppressWarnings("unchecked")
     @Test

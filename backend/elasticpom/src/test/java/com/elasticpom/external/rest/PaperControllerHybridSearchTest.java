@@ -16,6 +16,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -32,36 +33,52 @@ class PaperControllerHybridSearchTest {
     @MockitoBean
     private PaperMapper paperMapper;
 
-    private static String buildVector() {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < 384; i++) {
-            if (i > 0) sb.append(",");
-            sb.append("0.1");
-        }
-        sb.append("]");
-        return sb.toString();
-    }
-
     // -------------------------------------------------------------------------
-    // Valid request -> 200
+    // Valid request (text query only - no queryVector) -> 200
     // -------------------------------------------------------------------------
 
     @Test
     void hybridSearch_validRequest_returns200() throws Exception {
         Paper paper = new Paper();
         paper.setPaperId("p1");
-        when(paperService.getPapersByHybridSearch(anyString(), any(float[].class), anyInt(), anyInt()))
+        when(paperService.getPapersByHybridSearch(anyString(), anyInt(), anyInt(), isNull()))
                 .thenReturn(List.of(paper));
         when(paperMapper.toDto(any())).thenReturn(null);
 
         String requestBody = """
                 {
                   "query": "deep learning",
-                  "queryVector": %s,
                   "pageSize": 10,
                   "page": 0
                 }
-                """.formatted(buildVector());
+                """;
+
+        mockMvc.perform(post("/api/papers/hybrid-search")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk());
+    }
+
+    // -------------------------------------------------------------------------
+    // Valid request with filters -> 200, filters passed through to the service
+    // -------------------------------------------------------------------------
+
+    @Test
+    void hybridSearch_withFilters_passesFiltersToService() throws Exception {
+        Paper paper = new Paper();
+        paper.setPaperId("p1");
+        when(paperService.getPapersByHybridSearch(anyString(), anyInt(), anyInt(), any()))
+                .thenReturn(List.of(paper));
+        when(paperMapper.toDto(any())).thenReturn(null);
+
+        String requestBody = """
+                {
+                  "query": "deep learning",
+                  "pageSize": 10,
+                  "page": 0,
+                  "filters": [{"filter_name": "language", "filter_option": "en"}]
+                }
+                """;
 
         mockMvc.perform(post("/api/papers/hybrid-search")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -78,11 +95,10 @@ class PaperControllerHybridSearchTest {
         String requestBody = """
                 {
                   "query": "deep learning",
-                  "queryVector": %s,
                   "pageSize": 51,
                   "page": 0
                 }
-                """.formatted(buildVector());
+                """;
 
         mockMvc.perform(post("/api/papers/hybrid-search")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -99,11 +115,10 @@ class PaperControllerHybridSearchTest {
         String requestBody = """
                 {
                   "query": "deep learning",
-                  "queryVector": %s,
                   "pageSize": 0,
                   "page": 0
                 }
-                """.formatted(buildVector());
+                """;
 
         mockMvc.perform(post("/api/papers/hybrid-search")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -120,11 +135,10 @@ class PaperControllerHybridSearchTest {
         String requestBody = """
                 {
                   "query": "deep learning",
-                  "queryVector": %s,
                   "pageSize": 50,
                   "page": 200
                 }
-                """.formatted(buildVector());
+                """;
 
         mockMvc.perform(post("/api/papers/hybrid-search")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -133,15 +147,14 @@ class PaperControllerHybridSearchTest {
     }
 
     // -------------------------------------------------------------------------
-    // Null queryVector -> 400 (validation)
+    // Null query -> 400 (validation)
     // -------------------------------------------------------------------------
 
     @Test
-    void hybridSearch_nullQueryVector_returns400() throws Exception {
+    void hybridSearch_nullQuery_returns400() throws Exception {
         String requestBody = """
                 {
-                  "query": "deep learning",
-                  "queryVector": null,
+                  "query": null,
                   "pageSize": 10,
                   "page": 0
                 }
@@ -159,17 +172,16 @@ class PaperControllerHybridSearchTest {
 
     @Test
     void hybridSearch_noResults_returns404() throws Exception {
-        when(paperService.getPapersByHybridSearch(anyString(), any(float[].class), anyInt(), anyInt()))
+        when(paperService.getPapersByHybridSearch(anyString(), anyInt(), anyInt(), isNull()))
                 .thenThrow(new PaperNotInElasticException("There is no paper in the elastic for the page 0 and this query deep learning"));
 
         String requestBody = """
                 {
                   "query": "deep learning",
-                  "queryVector": %s,
                   "pageSize": 10,
                   "page": 0
                 }
-                """.formatted(buildVector());
+                """;
 
         mockMvc.perform(post("/api/papers/hybrid-search")
                         .contentType(MediaType.APPLICATION_JSON)

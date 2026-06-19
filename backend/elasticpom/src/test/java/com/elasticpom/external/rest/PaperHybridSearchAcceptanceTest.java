@@ -2,6 +2,7 @@ package com.elasticpom.external.rest;
 
 import com.elasticpom.adapters.PaperMapperImpl;
 import com.elasticpom.core.service.PaperService;
+import com.elasticpom.core.service.embedding.EmbeddingService;
 import com.elasticpom.external.document.ElasticPaperDocument;
 import com.elasticpom.external.document.PaperDocument;
 import com.elasticpom.external.integration.ElasticPaperRepository;
@@ -25,6 +26,7 @@ import java.util.stream.Stream;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -66,25 +68,30 @@ class PaperHybridSearchAcceptanceTest {
     @MockitoBean
     private ElasticsearchOperations elasticsearchOperations;
 
-    private static String buildVectorJson() {
-        StringBuilder sb = new StringBuilder("[");
+    @MockitoBean
+    private EmbeddingService embeddingService;
+
+    private static float[] buildVector() {
+        float[] v = new float[384];
         for (int i = 0; i < 384; i++) {
-            if (i > 0) sb.append(",");
-            sb.append("0.1");
+            v[i] = 0.1f;
         }
-        sb.append("]");
-        return sb.toString();
+        return v;
     }
 
     private static String requestBody(int pageSize, int page) {
         return """
                 {
                   "query": "deep learning",
-                  "queryVector": %s,
                   "pageSize": %d,
                   "page": %d
                 }
-                """.formatted(buildVectorJson(), pageSize, page);
+                """.formatted(pageSize, page);
+    }
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubEmbedding() {
+        lenient().when(embeddingService.embed(any())).thenReturn(buildVector());
     }
 
     private void mockSyntactic(String... ids) {

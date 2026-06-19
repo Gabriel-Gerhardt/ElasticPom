@@ -1,6 +1,7 @@
 package com.elasticpom.core.service;
 
 import com.elasticpom.adapters.PaperMapper;
+import com.elasticpom.core.service.embedding.EmbeddingService;
 import com.elasticpom.exception.PaperNotInElasticException;
 import com.elasticpom.external.document.ElasticPaperDocument;
 import com.elasticpom.external.integration.ElasticPaperRepository;
@@ -20,6 +21,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,6 +45,9 @@ class PaperServiceSemanticSearchTest {
     @SuppressWarnings("rawtypes")
     private SearchHits searchHits;
 
+    @Mock
+    private EmbeddingService embeddingService;
+
     private PaperService paperService;
 
     private static float[] buildVector() {
@@ -55,7 +60,8 @@ class PaperServiceSemanticSearchTest {
 
     @BeforeEach
     void setUp() {
-        paperService = new PaperService(paperRepository, elasticRepository, paperMapper, elasticsearchOperations);
+        paperService = new PaperService(paperRepository, elasticRepository, paperMapper, elasticsearchOperations, embeddingService);
+        lenient().when(embeddingService.embed(any())).thenReturn(buildVector());
     }
 
     // -------------------------------------------------------------------------
@@ -65,13 +71,13 @@ class PaperServiceSemanticSearchTest {
     @Test
     void getPapersBySemanticSearch_nullQuery_throwsPaperNotInElasticException() {
         assertThatThrownBy(() ->
-                paperService.getPapersBySemanticSearch(null, buildVector(), 10, 0))
+                paperService.getPapersBySemanticSearch(null, 10, 0))
                 .isInstanceOf(PaperNotInElasticException.class)
                 .hasMessageContaining("Query cannot be null");
     }
 
     // -------------------------------------------------------------------------
-    // Valid vector + query → calls elasticsearchOperations with kNN query
+    // Valid query → embeds server-side, then calls elasticsearchOperations with kNN query
     // -------------------------------------------------------------------------
 
     @Test
@@ -86,9 +92,37 @@ class PaperServiceSemanticSearchTest {
         when(searchHits.stream()).thenReturn(java.util.stream.Stream.of(hit));
         when(paperRepository.findByPaperId("paper-1")).thenReturn(null);
 
-        paperService.getPapersBySemanticSearch("deep learning", buildVector(), 10, 0);
+        paperService.getPapersBySemanticSearch("deep learning", 10, 0);
 
+        verify(embeddingService).embed("deep learning");
         verify(elasticsearchOperations).search(any(Query.class), eq(ElasticPaperDocument.class));
+    }
+
+    // -------------------------------------------------------------------------
+    // Blank (whitespace-only, non-null) query → NOT rejected by the null guard
+    // (only `query == null` is checked, see getPapersBySemanticSearch), so it is
+    // passed straight through to the embedding service as-is. This documents
+    // current behavior: there is no blank-query validation here (unlike
+    // buildFilteredBoolQuery's BM25 path, which treats blank as "match all" -
+    // semantic search has no such fallback and will embed the literal blank
+    // string instead).
+    // -------------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getPapersBySemanticSearch_blankQuery_isNotRejectedAndReachesEmbeddingServiceAsIs() {
+        ElasticPaperDocument doc = ElasticPaperDocument.builder().id("paper-1").build();
+        SearchHit<ElasticPaperDocument> hit = mock(SearchHit.class);
+        when(hit.getContent()).thenReturn(doc);
+
+        when(elasticsearchOperations.search(any(Query.class), eq(ElasticPaperDocument.class)))
+                .thenReturn(searchHits);
+        when(searchHits.stream()).thenReturn(java.util.stream.Stream.of(hit));
+        when(paperRepository.findByPaperId("paper-1")).thenReturn(null);
+
+        paperService.getPapersBySemanticSearch("   ", 10, 0);
+
+        verify(embeddingService).embed("   ");
     }
 
     // -------------------------------------------------------------------------
@@ -103,7 +137,7 @@ class PaperServiceSemanticSearchTest {
         when(searchHits.stream()).thenReturn(java.util.stream.Stream.of());
 
         assertThatThrownBy(() ->
-                paperService.getPapersBySemanticSearch("neural networks", buildVector(), 10, 0))
+                paperService.getPapersBySemanticSearch("neural networks", 10, 0))
                 .isInstanceOf(PaperNotInElasticException.class)
                 .hasMessageContaining("neural networks");
     }

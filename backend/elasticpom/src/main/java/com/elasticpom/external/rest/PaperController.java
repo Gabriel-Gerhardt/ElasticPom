@@ -52,7 +52,7 @@ public class PaperController {
     public ResponseEntity<List<PaperDto>> semanticSearch(@RequestBody @Validated SemanticSearchRequest request) {
         validateElasticPageSize(request.pageSize(), request.page());
         List<PaperDto> papers = service.getPapersBySemanticSearch(
-                request.query(), request.queryVector(), request.pageSize(), request.page()
+                request.query(), request.pageSize(), request.page()
         ).stream().map(paperMapper::toDto).toList();
         return ResponseEntity.ok(papers);
     }
@@ -61,7 +61,7 @@ public class PaperController {
     public ResponseEntity<List<PaperDto>> hybridSearch(@RequestBody @Validated HybridSearchRequest request) {
         validateElasticPageSize(request.pageSize(), request.page());
         List<PaperDto> papers = service.getPapersByHybridSearch(
-                request.query(), request.queryVector(), request.pageSize(), request.page()
+                request.query(), request.pageSize(), request.page(), request.filters()
         ).stream().map(paperMapper::toDto).toList();
         return ResponseEntity.ok(papers);
     }

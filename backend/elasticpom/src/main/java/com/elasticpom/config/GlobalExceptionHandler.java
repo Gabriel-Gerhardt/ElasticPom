@@ -1,6 +1,7 @@
 package com.elasticpom.config;
 
 import com.elasticpom.exception.BadRequestException;
+import com.elasticpom.exception.EmbeddingGenerationException;
 import com.elasticpom.exception.InvalidFilterException;
 import com.elasticpom.exception.PaperNotInElasticException;
 import org.springframework.data.elasticsearch.ResourceNotFoundException;
@@ -34,6 +35,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(new ApiResponse(404, "Invalid filter", e.getMessage()));
+    }
+
+    @ExceptionHandler(EmbeddingGenerationException.class)
+    public ResponseEntity<ApiResponse> handleEmbeddingGeneration(EmbeddingGenerationException e) {
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ApiResponse(500, "Failed to generate query embedding", e.getMessage()));
     }
 
 }
