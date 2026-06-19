@@ -24,6 +24,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.mapstruct:mapstruct:1.6.3'
+	implementation 'com.microsoft.onnxruntime:onnxruntime:1.26.0'
+	implementation 'ai.djl.huggingface:tokenizers:0.36.0'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
@@ -39,4 +41,32 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// Fetches the ONNX export of sentence-transformers/all-MiniLM-L6-v2 (~90MB model +
+// tokenizer config) into a gitignored local cache so the embedding model never has to be
+// committed to git. Not wired into `build`/`test` - those must work offline (the real
+// EmbeddingService implementation loads lazily from this same cache path at startup and
+// the unit tests use fixtures), so this task only runs on demand:
+//   ./gradlew downloadEmbeddingModel
+def modelCacheDir = layout.projectDirectory.dir('.model-cache/all-MiniLM-L6-v2')
+tasks.register('downloadEmbeddingModel') {
+	group = 'embedding'
+	description = 'Downloads the all-MiniLM-L6-v2 ONNX model + tokenizer into .model-cache (gitignored, on-demand only).'
+	def modelUrl = 'https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/onnx/model.onnx'
+	def tokenizerUrl = 'https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer.json'
+	def modelFile = modelCacheDir.file('model.onnx').asFile
+	def tokenizerFile = modelCacheDir.file('tokenizer.json').asFile
+	outputs.files(modelFile, tokenizerFile)
+	doLast {
+		modelCacheDir.asFile.mkdirs()
+		if (!modelFile.exists()) {
+			logger.lifecycle("Downloading ${modelUrl}")
+			new URL(modelUrl).withInputStream { is -> modelFile.bytes = is.bytes }
+		}
+		if (!tokenizerFile.exists()) {
+			logger.lifecycle("Downloading ${tokenizerUrl}")
+			new URL(tokenizerUrl).withInputStream { is -> tokenizerFile.bytes = is.bytes }
+		}
+	}
 }
