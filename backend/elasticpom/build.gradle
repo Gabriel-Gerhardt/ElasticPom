@@ -60,13 +60,20 @@ tasks.register('downloadEmbeddingModel') {
 	outputs.files(modelFile, tokenizerFile)
 	doLast {
 		modelCacheDir.asFile.mkdirs()
-		if (!modelFile.exists()) {
-			logger.lifecycle("Downloading ${modelUrl}")
-			new URL(modelUrl).withInputStream { is -> modelFile.bytes = is.bytes }
+		def client = java.net.http.HttpClient.newBuilder()
+			.followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
+			.build()
+		def fetch = { String url, File dest ->
+			if (dest.exists()) return
+			logger.lifecycle("Downloading ${url}")
+			def request = java.net.http.HttpRequest.newBuilder(URI.create(url)).GET().build()
+			def response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofFile(dest.toPath()))
+			if (response.statusCode() != 200) {
+				dest.delete()
+				throw new GradleException("Download failed (HTTP ${response.statusCode()}) for ${url}")
+			}
 		}
-		if (!tokenizerFile.exists()) {
-			logger.lifecycle("Downloading ${tokenizerUrl}")
-			new URL(tokenizerUrl).withInputStream { is -> tokenizerFile.bytes = is.bytes }
-		}
+		fetch(modelUrl, modelFile)
+		fetch(tokenizerUrl, tokenizerFile)
 	}
 }
