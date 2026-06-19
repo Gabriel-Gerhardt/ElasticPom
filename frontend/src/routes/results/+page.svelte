@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
-	import { getMostRelevant, searchByQuery } from '$lib/api/papers';
+	import { getMostRelevant, hybridSearch } from '$lib/api/papers';
 	import type { PaperDto } from '$lib/types/paper';
 	import type { FilterRequest } from '$lib/types/api';
 
@@ -34,7 +34,7 @@
 		error = '';
 		try {
 			if (query) {
-				papers = await searchByQuery(query, PAGE_SIZE, currentPage, activeFilters);
+				papers = await hybridSearch(query, PAGE_SIZE, currentPage, activeFilters);
 			} else {
 				papers = await getMostRelevant(PAGE_SIZE, currentPage);
 			}
