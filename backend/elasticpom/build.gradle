@@ -63,6 +63,7 @@ tasks.register('downloadEmbeddingModel') {
 		def client = java.net.http.HttpClient.newBuilder()
 			.followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
 			.connectTimeout(java.time.Duration.ofSeconds(30))
+			.version(java.net.http.HttpClient.Version.HTTP_1_1)
 			.build()
 		def expectedLength = { String url ->
 			def head = java.net.http.HttpRequest.newBuilder(URI.create(url))
@@ -86,10 +87,27 @@ tasks.register('downloadEmbeddingModel') {
 				.timeout(java.time.Duration.ofMinutes(5))
 				.GET()
 				.build()
-			def response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofFile(dest.toPath()))
-			if (response.statusCode() != 200) {
-				dest.delete()
-				throw new GradleException("Download failed (HTTP ${response.statusCode()}) for ${url}")
+			def progress = new Thread({
+				while (!Thread.currentThread().isInterrupted()) {
+					Thread.sleep(3000)
+					long current = dest.exists() ? dest.length() : 0L
+					if (expected > 0) {
+						logger.lifecycle("  ${dest.name}: ${current} / ${expected} bytes (${(current * 100 / expected)}%)")
+					} else {
+						logger.lifecycle("  ${dest.name}: ${current} bytes")
+					}
+				}
+			})
+			progress.daemon = true
+			progress.start()
+			try {
+				def response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofFile(dest.toPath()))
+				if (response.statusCode() != 200) {
+					dest.delete()
+					throw new GradleException("Download failed (HTTP ${response.statusCode()}) for ${url}")
+				}
+			} finally {
+				progress.interrupt()
 			}
 			if (expected > 0 && dest.length() != expected) {
 				dest.delete()
