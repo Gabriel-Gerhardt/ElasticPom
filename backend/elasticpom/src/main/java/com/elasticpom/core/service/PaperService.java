@@ -315,7 +315,7 @@ public class PaperService {
         List<Query> filterClauses = buildFilterClauses(filters);
 
         KnnSearch knnSearch = KnnSearch.of(k -> k
-                .field("embedPaper")
+                .field("embed_paper")
                 .queryVector(vectorList)
                 .numCandidates(pageSize * 10)
                 .k(pageSize)
