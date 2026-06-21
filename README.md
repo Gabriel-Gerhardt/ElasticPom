@@ -1,87 +1,77 @@
 # ElasticPom
 
-Unified full-stack application for semantic search over scientific papers.
+Hybrid search engine for scientific papers — combines keyword (BM25) and semantic (vector) search, fused with Reciprocal Rank Fusion.
 
-## Overview
+## How It Works
 
-ElasticPom ingests scientific paper datasets, stores metadata in MongoDB, and indexes them in Elasticsearch to enable fast and semantic search. Users can query papers using natural language and retrieve the most relevant results.
-
-## Architecture Diagram
-
-Data ingestion → MongoDB → Elasticsearch → Backend → Frontend
+- **Ingestion (Python):** harvests paper metadata from OAI-PMH-compliant sources, embeds each paper with a sentence-transformer model, and writes to MongoDB (source of truth) and Elasticsearch (search index, text + vector).
+- **Backend (Java + Spring Boot):** exposes default relevance, BM25, semantic, and hybrid search. Hybrid search runs BM25 and kNN independently, then merges the two rankings with Reciprocal Rank Fusion. Query embeddings are generated locally so they land in the same vector space as the ingested corpus.
+- **Frontend (SvelteKit):** search bar, filters, pagination, results.
 
 ## Tech Stack
 
-- Python 3.11 (data ingestion)
-- Java 21 + Spring Boot (backend)
+- Python 3.11
+- Java 21 + Spring Boot
 - MongoDB 8.2.6
 - Elasticsearch 9.3.2
-- SvelteKit + Typescript + Tailwind (frontend)
-  
-## Data
+- SvelteKit + TypeScript + Tailwind CSS
 
-- OAI-PMH protocol
-  https://www.openarchives.org/pmh/
+## Diagram
 
-## Features
+```mermaid
+sequenceDiagram
+    participant FE as Frontend
+    participant API as Backend
+    participant ES as Elasticsearch
+    participant DB as MongoDB
 
-- Centralized search across scientific papers
-- Relevance-based ranking
-- Natural language queries
+    FE->>API: search
+    API->>ES: BM25 + kNN search
+    ES-->>API: ranked ids
+    API->>DB: fetch papers (ids from Elasticsearch)
+    DB-->>API: full documents
+    API-->>FE: ranked results
+```
 
-## Setup
+## Use Cases
 
-### Clone repository
+- Find relevant papers using natural language, not just exact keywords
+- Surface related work even when it uses different terminology than the search
+- Filter results by metadata (date, subject, author) without losing relevance ranking
+
+## Set-up
+
 ```bash
 git clone https://github.com/Gabriel-Gerhardt/ElasticPom.git
 cd ElasticPom
-```
 
-### Start infrastructure (MongoDB + Elasticsearch)
-```bash
-cd backend
-docker compose up
-```
+# Infrastructure (MongoDB + Elasticsearch)
+cd backend && docker compose up -d
 
-### Data ingestion
-```bash
+# Ingestion
 cd ingestor
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python3 main.py
-```
 
-### Backend
-```bash
-cd backend
-./gradlew clean build
+# Backend (downloads embedding model on first run)
+cd ../elasticpom
+./gradlew downloadEmbeddingModel
 ./gradlew bootRun
-```
 
-### Frontend
-```bash
-cd frontend
+# Frontend
+cd ../../frontend
 npm install
 npm run dev
 ```
 
-## Access
-
-- most relevant papers:  http://localhost:8080/api/papers/most-relevant/?page-size=10&page=0
-
-## Notes
-
-- Ensure Docker is running before starting services
-- Elasticsearch and Mongo indexing depends on ingestion step
-- Default ports:
-  - Backend: 8080  
-  - Frontend: 5173  
-  - MongoDB: 27017  
-  - Elasticsearch: 9200  
+Access:
+- `GET /api/papers/most-relevant/?page-size=10&page=0`
+- `POST /api/papers/hybrid-search`
+- Frontend: `http://localhost:5173`
 
 ## Contact
 
-- LinkedIn: https://www.linkedin.com/in/gabriel-gerhardt-0a8b852b9/  
-- Email: gabrielgerhardt27@gmail.com  
+- LinkedIn: https://www.linkedin.com/in/gabriel-gerhardt-0a8b852b9/
+- Email: gabrielgerhardt27@gmail.com
 - GitHub: https://github.com/Gabriel-Gerhardt
