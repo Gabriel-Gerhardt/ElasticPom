@@ -43,7 +43,7 @@ public class PaperController {
     }
 
     @PostMapping("/filter-options")
-    public ResponseEntity<List<String>> getFilterOptions(@RequestBody @Validated FilterOptionsRequest request) {
+    public ResponseEntity<List<String>> getFilterOptionsForQuery(@RequestBody @Validated FilterOptionsRequest request) {
         List<String> values = service.getDistinctFilterValues(request.query(), request.filterName(), request.filters());
         return ResponseEntity.ok(values);
     }

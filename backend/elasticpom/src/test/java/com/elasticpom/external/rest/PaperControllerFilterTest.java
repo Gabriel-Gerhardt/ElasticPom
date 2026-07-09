@@ -200,7 +200,7 @@ class PaperControllerFilterTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void getFilterOptions_validFilterName_returns200WithValues() throws Exception {
+    void getFilterOptions_validFilterName_returns200WithValuesForPapers() throws Exception {
         when(paperService.getDistinctFilterValues(isNull(), eq("language"), isNull())).thenReturn(List.of("en", "fr"));
 
         String requestBody = """
@@ -224,7 +224,7 @@ class PaperControllerFilterTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void getFilterOptions_withQueryAndFilters_passesThroughToService() throws Exception {
+    void getFilterOptions_ForPapers_withQueryAndFilters_passesThroughToService() throws Exception {
         when(paperService.getDistinctFilterValues(anyString(), eq("subjects"), anyList()))
                 .thenReturn(List.of("ai"));
 
@@ -255,7 +255,7 @@ class PaperControllerFilterTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void getFilterOptions_invalidFilterName_returns404() throws Exception {
+    void getFilterOptions_invalidFilterName_returns404ForPapers() throws Exception {
         when(paperService.getDistinctFilterValues(isNull(), eq("bad_field"), isNull()))
                 .thenThrow(new InvalidFilterException("Filter 'bad_field' does not exist in the index mapping"));
 

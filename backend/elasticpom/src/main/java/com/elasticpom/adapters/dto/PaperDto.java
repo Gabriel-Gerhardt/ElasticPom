@@ -1,6 +1,5 @@
 package com.elasticpom.adapters.dto;
 
-import com.elasticpom.core.model.UniqueField;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;

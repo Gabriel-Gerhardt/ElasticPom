@@ -100,7 +100,6 @@ public class PaperService {
      * A blank/null query is treated as "match everything" (no multi-match clause) so that
      * the aggregation can also be scoped purely by filters with no free-text query.
      */
-    @SuppressWarnings("unchecked")
     private Query buildFilteredBoolQuery(String query, List<FilterRequest> filters) {
         List<Query> filterClauses = buildFilterClauses(filters);
 
@@ -114,10 +113,9 @@ public class PaperService {
                     .tieBreaker(0.3))));
         }
 
-        List<Query> finalFilterClauses = filterClauses;
         return Query.of(q -> q.bool(BoolQuery.of(b -> b
                 .must(mustClauses)
-                .filter(finalFilterClauses))));
+                .filter(filterClauses))));
     }
 
     /**
