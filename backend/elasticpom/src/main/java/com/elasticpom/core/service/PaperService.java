@@ -48,6 +48,10 @@ public class PaperService {
     private final PaperMapper paperMapper;
     private final ElasticsearchOperations elasticsearchOperations;
     private final EmbeddingService embeddingService;
+    private static final String DISTINCT_VALUES_AGG_NAME = "distinct_values";
+    private static final Set<String> NUMERIC_TYPES = Set.of("integer", "long", "float", "double");
+
+
 
     public PaperService(PaperRepository paperRepository, ElasticPaperRepository elasticRepository,
                         PaperMapper paperMapper, ElasticsearchOperations elasticsearchOperations,
@@ -218,8 +222,6 @@ public class PaperService {
         return filterName;
     }
 
-    private static final Set<String> NUMERIC_TYPES = Set.of("integer", "long", "float", "double");
-
     private void validateRangeValue(String fieldName, String value, String fieldType) {
         try {
             if (NUMERIC_TYPES.contains(fieldType)) {
@@ -231,8 +233,6 @@ public class PaperService {
             throw new BadRequestException("Invalid value '" + value + "' for " + fieldType + " field '" + fieldName + "'");
         }
     }
-
-    private static final String DISTINCT_VALUES_AGG_NAME = "distinct_values";
 
     @SuppressWarnings("unchecked")
     public List<String> getDistinctFilterValues(String query, String filterName, List<FilterRequest> filters) {
