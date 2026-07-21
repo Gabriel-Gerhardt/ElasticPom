@@ -1,15 +1,10 @@
-from elastic.elastic_data_parser import ElasticDataParser
-from elastic.elastic_integration import ElasticIntegration
+import json
 from embedding.embedding_service import EmbeddingService
 import time
 from ingestor import Ingestor
-from mongo.filter_data_parser import FILTERS
-from mongo.mongo_data_parser import MongoDataParser
-from mongo.mongo_integration import MongoIntegration
 from utils.paper_parser import PaperParser
-from utils.time_converter import TimeConverter
 from oaipmh_scythe import Scythe
-
+from serializer import KafkaProducer
 
 def main():
     mapping = {
@@ -82,23 +77,26 @@ def main():
             }
         }
     }
-    index = "paper"
-
+    topic = "paper"
     paper_parser = PaperParser()
-    time_converter = TimeConverter()
     embedding_service = EmbeddingService()
-
-    mongo_parser = MongoDataParser(paper_parser)
-    mongo_integration = MongoIntegration(
-        uri="mongodb://admin:password@localhost:27017",
-        database="elasticpom",
-        collection="Paper"
+    producer = KafkaProducer(
+        bootstrap_servers="localhost:9094",
+        value_serializer = lambda v: json.dumps(v).encode("utf-8"),
+        key_serializer=lambda k: k.encode("utf-8"),
     )
-    elastic_parser = ElasticDataParser(index, time_converter, paper_parser, embedding_service)
-    elastic_integration = ElasticIntegration(elasticsearch_host="http://localhost:9200")
-    elastic_integration.put_mapping(index, mapping)
 
-    mongo_integration.save_filters(FILTERS)
+    # mongo_parser = MongoDataParser(paper_parser)
+    # mongo_integration = MongoIntegration(
+    #     uri="mongodb://admin:password@localhost:27017",
+    #     database="elasticpom",
+    #     collection="Paper"
+    # # )
+    # elastic_parser = ElasticDataParser(index, time_converter, paper_parser, embedding_service)
+    # elastic_integration = ElasticIntegration(elasticsearch_host="http://localhost:9200")
+    # elastic_integration.put_mapping(index, mapping)
+    #
+    # mongo_integration.save_filters(FILTERS)
 
     ingestor = Ingestor("https://oaipmh.arxiv.org/oai","oai_dc","cs:cs:IR")
     total_start = time.time()
@@ -106,13 +104,10 @@ def main():
     for chunk in ingestor.run():
         chunk_start = time.time()
         paper_list = paper_parser.parse(chunk)
+        for paper in paper_list:
+            producer.send(topic=topic, key=paper["paper_id"], value = paper)
 
-        documents = mongo_parser.generate_mongo(paper_list)
-        mongo_integration.bulk_save(documents)
-
-        actions = elastic_parser.generate_actions(chunk=paper_list)
-        elastic_integration.save_data(actions)
-
+        producer.flush()
         chunk_end = time.time()
         print(f"Chunk time: {chunk_end - chunk_start:.2f}s")
 
