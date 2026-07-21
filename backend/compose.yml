@@ -18,7 +18,6 @@ services:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - ELASTICSEARCH_SSL_VERIFICATIONMODE=none
 
-
   mongo:
     image: mongo:8.2.6
     environment:
@@ -44,6 +43,17 @@ services:
     ports:
       - "9092:9092"
       - "9094:9094"
+      
+  kafka-ui:
+    image: kafbat/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
 
 volumes:
   es_data:
