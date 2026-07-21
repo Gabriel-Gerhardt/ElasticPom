@@ -1,10 +1,12 @@
-import json
 from embedding.embedding_service import EmbeddingService
 import time
 from ingestor import Ingestor
+from serializer.JsonKafkaSerializer import JsonKafkaSerializer
+from serializer.StringKafkaSerializer import StringKafkaSerializer
 from utils.paper_parser import PaperParser
 from oaipmh_scythe import Scythe
-from serializer import KafkaProducer
+from kafka import KafkaProducer
+
 
 def main():
     mapping = {
@@ -82,8 +84,8 @@ def main():
     embedding_service = EmbeddingService()
     producer = KafkaProducer(
         bootstrap_servers="localhost:9094",
-        value_serializer = lambda v: json.dumps(v).encode("utf-8"),
-        key_serializer=lambda k: k.encode("utf-8"),
+        value_serializer = JsonKafkaSerializer(),
+        key_serializer=StringKafkaSerializer(),
     )
 
     # mongo_parser = MongoDataParser(paper_parser)
