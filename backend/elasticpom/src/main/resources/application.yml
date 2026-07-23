@@ -8,3 +8,9 @@ spring:
     uri: mongodb://admin:password@localhost:27017
     database: elasticpom
     authentication-database: admin
+  kafka:
+    bootstrap-servers: localhost:9094
+    group-id: paper-service-consumer
+
+server:
+  port: 9000

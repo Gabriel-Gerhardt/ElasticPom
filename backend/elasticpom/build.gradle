@@ -26,6 +26,8 @@ dependencies {
 	implementation 'org.mapstruct:mapstruct:1.6.3'
 	implementation 'com.microsoft.onnxruntime:onnxruntime:1.26.0'
 	implementation 'ai.djl.huggingface:tokenizers:0.36.0'
+    implementation 'org.springframework.kafka:spring-kafka:4.1.0'
+    implementation 'org.springframework.boot:spring-boot-starter-kafka'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
