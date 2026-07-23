@@ -11,7 +11,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Paper {
-    private String id;
     private String paperId;
     private LocalDate datestamp;
     private String title;
@@ -22,13 +21,11 @@ public class Paper {
     private List<String> contributors;
     private LocalDate date;
     private String type;
-    private String format;
     private String identifier;
     private String source;
     private String language;
     private List<String> relations;
     private String coverage;
     private String rights;
-    private String paperType;
     private List<UniqueField> uniqueFields;
 }

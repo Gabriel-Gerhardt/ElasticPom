@@ -13,7 +13,6 @@ import java.util.List;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PaperDto {
-    private String id;
     private String paperId;
     private LocalDate datestamp;
     private String title;
@@ -24,13 +23,11 @@ public class PaperDto {
     private List<String> contributors;
     private LocalDate date;
     private String type;
-    private String format;
     private String identifier;
     private String source;
     private String language;
     private List<String> relations;
     private String coverage;
     private String rights;
-    private String paperType;
     private List<UniqueFieldDto> uniqueFields;
 }
