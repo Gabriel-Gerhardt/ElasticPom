@@ -13,7 +13,6 @@ public interface ElasticPaperRepository extends ElasticsearchRepository<ElasticP
     @SourceFilters(includes = "id")
     Page<ElasticPaperDocument> findAll(Pageable pageable);
 
-
     @SourceFilters(includes = "id")
     @Query("""
         {
