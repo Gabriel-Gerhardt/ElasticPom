@@ -53,7 +53,7 @@ class PaperParser:
         }
 
     @staticmethod
-    def _parse_date(value):
+    def _parse_date(value): ##This make sure it does not break in java if it comes with hours and seconds
         if not value:
             return None
         try:

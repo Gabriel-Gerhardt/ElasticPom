@@ -48,9 +48,6 @@ def main():
                 "type": {
                     "type": "keyword"
                 },
-                "format": {
-                    "type": "keyword"
-                },
                 "identifier": {
                     "type": "keyword"
                 },
