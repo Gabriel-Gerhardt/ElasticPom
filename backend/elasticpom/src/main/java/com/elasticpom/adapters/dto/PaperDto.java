@@ -1,5 +1,6 @@
 package com.elasticpom.adapters.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -13,6 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PaperDto {
+    @JsonAlias("paper_id")
     private String paperId;
     private LocalDate datestamp;
     private String title;
@@ -29,5 +31,6 @@ public class PaperDto {
     private List<String> relations;
     private String coverage;
     private String rights;
+    @JsonAlias("unique_fields")
     private List<UniqueFieldDto> uniqueFields;
 }
