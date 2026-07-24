@@ -22,7 +22,7 @@ services:
     image: mongo:8.2.6
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_ROOT_PASSWORD: admin
     ports:
       - "27017:27017"
     volumes:
